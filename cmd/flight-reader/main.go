@@ -28,12 +28,12 @@ func main() {
 		log.Panicln(err)
 	}
 
-	httpServer, err := makeHTTPServer()
+	httpClient, err := makeHTTPClient()
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	httpClient, err := makeHTTPClient()
+	httpServer, err := makeHTTPServer(httpClient)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -103,7 +103,7 @@ func makeLogger() error {
 }
 
 // makeHTTPServer create and instantiate a http server.
-func makeHTTPServer() (*http.Server, error) {
+func makeHTTPServer(httpClient *client.HTTPClient) (*http.Server, error) {
 	slog.Debug("Creating http server for the service")
 
 	httpCfg, err := config.MakeHTTPServerConfig()
@@ -117,7 +117,7 @@ func makeHTTPServer() (*http.Server, error) {
 
 	// register endpoints.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/fetch", server.FetchHandler)
+	mux.HandleFunc("/api/v1/fetch", server.FetchHandler(httpClient))
 
 	return &http.Server{
 		Addr:              ":" + httpCfg.Port,

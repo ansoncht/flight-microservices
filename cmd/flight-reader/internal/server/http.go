@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 )
 
 func ServeHTTP(svr *http.Server) error {
@@ -16,8 +18,15 @@ func ServeHTTP(svr *http.Server) error {
 	return nil
 }
 
-func FetchHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Info("Received request", "method", r.Method, "url", r.URL.String())
+func FetchHandler(fetcher client.FlightFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("Received request", "method", r.Method, "url", r.URL.String())
 
-	fmt.Fprintln(w, "Fetch endpoint hit!")
+		if err := fetcher.FetchFlightsFromAPI(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "Successfully triggered a manual fetch")
+	}
 }
