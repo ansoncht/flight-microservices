@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
 	"golang.org/x/sync/errgroup"
@@ -32,11 +33,20 @@ func main() {
 		log.Panicln(err)
 	}
 
+	httpClient, err := makeHTTPClient()
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		return server.ServeHTTP(httpServer)
 	})
+
+	if err := httpClient.FetchFlightsFromAPI(gCtx); err != nil {
+		log.Panicln(err)
+	}
 
 	<-gCtx.Done()
 
@@ -101,6 +111,10 @@ func makeHTTPServer() (*http.Server, error) {
 		return nil, fmt.Errorf("failed to get http server config: %w", err)
 	}
 
+	if port := httpCfg.Port; port == "" {
+		return nil, fmt.Errorf("empty port number")
+	}
+
 	// register endpoints.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/fetch", server.FetchHandler)
@@ -109,5 +123,22 @@ func makeHTTPServer() (*http.Server, error) {
 		Addr:              ":" + httpCfg.Port,
 		Handler:           mux,
 		ReadHeaderTimeout: time.Duration(httpCfg.ReadHeaderTimeout) * time.Second,
+	}, nil
+}
+
+// makeHTTPClient create and instantiate a http client.
+func makeHTTPClient() (*client.HTTPClient, error) {
+	slog.Debug("Creating http client for the service")
+
+	httpCfg, err := config.MakeHTTPClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get http client config: %w", err)
+	}
+
+	return &client.HTTPClient{
+		Client: &http.Client{
+			Timeout: time.Duration(httpCfg.Timeout) * time.Second,
+		},
+		Endpoint: httpCfg.URL,
 	}, nil
 }
