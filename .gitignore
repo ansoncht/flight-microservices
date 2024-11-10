@@ -1,0 +1,15 @@
+# Ignore IDE and editor directories
+**/.vscode/
+**/.idea/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Ignore environment files
+.env
