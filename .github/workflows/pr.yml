@@ -12,7 +12,7 @@ jobs:
       pull-requests: read
 
     outputs:
-      flight-reader: ${{ steps.filter.outputs.flight-reader }}
+      app: ${{ steps.filter.outputs.changes }}
 
     steps:
       - name: Filter Directory
@@ -26,6 +26,9 @@ jobs:
   build:
     needs: changes
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJSON(needs.changes.outputs.app) }}
 
     steps:
       - name: Checkout Code
@@ -39,13 +42,31 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.54
-          working-directory: ${{ needs.changes.outputs.flight-reader }}
+          version: v1.61
+          working-directory: cmd/${{ matrix.app }}
 
       - name: Build
         run: go build -v ./...
-        working-directory: ${{ needs.changes.outputs.flight-reader }}
+        working-directory: cmd/${{ matrix.app }}
 
       - name: Test
         run: go test -v ./...
-        working-directory: ${{ needs.changes.outputs.flight-reader }}
+        working-directory: cmd/${{ matrix.app }}
+
+  approve:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Approve Build
+        run: echo "Build Succeeded :)"
+
+  fail:
+    needs: build
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: Reject Build
+        run: echo "Build Failed :("
