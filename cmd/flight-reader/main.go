@@ -13,6 +13,7 @@ import (
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/scheduler"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
 	"golang.org/x/sync/errgroup"
 )
@@ -33,10 +34,12 @@ func main() {
 		log.Panicln(err)
 	}
 
-	httpServer, err := makeHTTPServer(httpClient)
+	httpServer, err := makeHTTPServer(ctx, httpClient)
 	if err != nil {
 		log.Panicln(err)
 	}
+
+	schedule := makeScheduler(httpClient)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -44,14 +47,14 @@ func main() {
 		return server.ServeHTTP(httpServer)
 	})
 
-	if err := httpClient.FetchFlightsFromAPI(gCtx); err != nil {
-		log.Panicln(err)
-	}
+	g.Go(func() error {
+		return schedule.ScheduleDailyFetch(gCtx)
+	})
 
 	<-gCtx.Done()
 
 	if err := g.Wait(); err != nil {
-		slog.Error("unexpected error occur", "error", err)
+		slog.Error("Encounter unexpected error", "error", err)
 		log.Panicln(err)
 	}
 
@@ -103,7 +106,7 @@ func makeLogger() error {
 }
 
 // makeHTTPServer create and instantiate a http server.
-func makeHTTPServer(httpClient *client.HTTPClient) (*http.Server, error) {
+func makeHTTPServer(ctx context.Context, httpClient *client.HTTPClient) (*http.Server, error) {
 	slog.Debug("Creating http server for the service")
 
 	httpCfg, err := config.MakeHTTPServerConfig()
@@ -117,7 +120,7 @@ func makeHTTPServer(httpClient *client.HTTPClient) (*http.Server, error) {
 
 	// register endpoints.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/fetch", server.FetchHandler(httpClient))
+	mux.HandleFunc("/api/v1/fetch", server.FetchHandler(ctx, httpClient))
 
 	return &http.Server{
 		Addr:              ":" + httpCfg.Port,
@@ -141,4 +144,13 @@ func makeHTTPClient() (*client.HTTPClient, error) {
 		},
 		Endpoint: httpCfg.URL,
 	}, nil
+}
+
+// makeScheduler create and instantiate a scheduler.
+func makeScheduler(httpClient *client.HTTPClient) *scheduler.Scheduler {
+	slog.Debug("Creating scheduler for the service")
+
+	return &scheduler.Scheduler{
+		FlightFetcher: httpClient,
+	}
 }

@@ -25,6 +25,7 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         app: ${{ fromJSON(needs.changes.outputs.app) }}
 
@@ -42,6 +43,8 @@ jobs:
         with:
           version: v1.61
           working-directory: cmd/${{ matrix.app }}
+          skip-pkg-cache: true
+          skip-build-cache: true
 
       - name: Build
         run: go build -v ./...
@@ -54,10 +57,11 @@ jobs:
   approve:
     needs: build
     runs-on: ubuntu-latest
-    if: success()
+    if: ${{ always() }}
 
     steps:
       - name: Approve Build
+        if: ${{ needs.build.result == 'success' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -67,14 +71,10 @@ jobs:
               repo: context.repo.repo,
               body: '# ✅ Build Succeeded!'
             })
+            process.exit(0)
 
-  fail:
-    needs: build
-    runs-on: ubuntu-latest
-    if: failure()
-
-    steps:
-      - name: Reject Build
+      - name: Fail Build
+        if: ${{ needs.build.result == 'failure' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -84,3 +84,4 @@ jobs:
               repo: context.repo.repo,
               body: '# ❌ Build Failed!'
             })
+            process.exit(1)

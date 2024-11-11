@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,11 +19,11 @@ func ServeHTTP(svr *http.Server) error {
 	return nil
 }
 
-func FetchHandler(fetcher client.FlightFetcher) http.HandlerFunc {
+func FetchHandler(ctx context.Context, fetcher client.FlightFetcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Received request", "method", r.Method, "url", r.URL.String())
 
-		if err := fetcher.FetchFlightsFromAPI(r.Context()); err != nil {
+		if err := fetcher.FetchFlightsFromAPI(ctx); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
