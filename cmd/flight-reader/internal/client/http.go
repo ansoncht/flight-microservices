@@ -16,7 +16,7 @@ const (
 )
 
 type FlightFetcher interface {
-	FetchFlightsFromAPI(ctx context.Context) error
+	FetchFlightsFromAPI(context.Context) error
 }
 
 // HTTPClient represents http client and endpoint it is fetching from.
@@ -25,14 +25,17 @@ type HTTPClient struct {
 	Endpoint string
 }
 
-// FetchFlightsFromAPI fetch information from the predefined API
+// FetchFlightsFromAPI fetch information from the predefined API.
 func (c *HTTPClient) FetchFlightsFromAPI(ctx context.Context) error {
 	slog.Info("fetching data from api", "url", c.Endpoint)
 
-	resp, err := c.Client.Get(c.Endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Endpoint, nil)
 	if err != nil {
-		slog.Error("failed to fetch from API", "error", err)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 
+	resp, err := c.Client.Do(req)
+	if err != nil {
 		return fmt.Errorf("failed to fetch from API: %w", err)
 	}
 
@@ -40,15 +43,15 @@ func (c *HTTPClient) FetchFlightsFromAPI(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != statusOK {
-		slog.Error("unexpected status code", "status_code", resp.StatusCode)
-
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	if resp.Body == nil {
+		return fmt.Errorf("response body is nil")
 	}
 
 	flightData, err := c.decodeAPIResponse(resp.Body)
 	if err != nil {
-		slog.Error("failed to read response body", "error", err)
-
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
@@ -68,7 +71,7 @@ func (c *HTTPClient) decodeAPIResponse(body io.ReadCloser) ([]model.FlightData, 
 	return flightData, nil
 }
 
-// printFlightData prints decoded flight data in format
+// printFlightData prints decoded flight data in format.
 func (c *HTTPClient) printFlightData(flightData []model.FlightData) {
 	if len(flightData) == 0 {
 		slog.Warn("no flight data found in response")
