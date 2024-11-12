@@ -1,0 +1,18 @@
+syntax = "proto3";
+package tutorial;
+
+option go_package = "github.com/ansoncht/flight-microservices/proto/summarizer";
+
+service Summarizer {
+    rpc PullFlight (PullFlightRequest) returns (PullFlightResponse) {}
+}
+
+message PullFlightRequest {
+    string flight = 1;
+    string origin = 2;
+    string destination = 3;
+}
+
+message PullFlightResponse {
+    
+}
