@@ -19,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Summarizer_PullFlight_FullMethodName = "/tutorial.Summarizer/PullFlight"
+	Summarizer_PullFlight_FullMethodName = "/flight.Summarizer/PullFlight"
 )
 
 // SummarizerClient is the client API for Summarizer service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SummarizerClient interface {
-	PullFlight(ctx context.Context, in *PullFlightRequest, opts ...grpc.CallOption) (*PullFlightResponse, error)
+	PullFlight(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PullFlightRequest, PullFlightResponse], error)
 }
 
 type summarizerClient struct {
@@ -37,21 +37,24 @@ func NewSummarizerClient(cc grpc.ClientConnInterface) SummarizerClient {
 	return &summarizerClient{cc}
 }
 
-func (c *summarizerClient) PullFlight(ctx context.Context, in *PullFlightRequest, opts ...grpc.CallOption) (*PullFlightResponse, error) {
+func (c *summarizerClient) PullFlight(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PullFlightRequest, PullFlightResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PullFlightResponse)
-	err := c.cc.Invoke(ctx, Summarizer_PullFlight_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Summarizer_ServiceDesc.Streams[0], Summarizer_PullFlight_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[PullFlightRequest, PullFlightResponse]{ClientStream: stream}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Summarizer_PullFlightClient = grpc.ClientStreamingClient[PullFlightRequest, PullFlightResponse]
 
 // SummarizerServer is the server API for Summarizer service.
 // All implementations must embed UnimplementedSummarizerServer
 // for forward compatibility.
 type SummarizerServer interface {
-	PullFlight(context.Context, *PullFlightRequest) (*PullFlightResponse, error)
+	PullFlight(grpc.ClientStreamingServer[PullFlightRequest, PullFlightResponse]) error
 	mustEmbedUnimplementedSummarizerServer()
 }
 
@@ -62,8 +65,8 @@ type SummarizerServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSummarizerServer struct{}
 
-func (UnimplementedSummarizerServer) PullFlight(context.Context, *PullFlightRequest) (*PullFlightResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PullFlight not implemented")
+func (UnimplementedSummarizerServer) PullFlight(grpc.ClientStreamingServer[PullFlightRequest, PullFlightResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method PullFlight not implemented")
 }
 func (UnimplementedSummarizerServer) mustEmbedUnimplementedSummarizerServer() {}
 func (UnimplementedSummarizerServer) testEmbeddedByValue()                    {}
@@ -86,36 +89,26 @@ func RegisterSummarizerServer(s grpc.ServiceRegistrar, srv SummarizerServer) {
 	s.RegisterService(&Summarizer_ServiceDesc, srv)
 }
 
-func _Summarizer_PullFlight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PullFlightRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SummarizerServer).PullFlight(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Summarizer_PullFlight_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SummarizerServer).PullFlight(ctx, req.(*PullFlightRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+func _Summarizer_PullFlight_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SummarizerServer).PullFlight(&grpc.GenericServerStream[PullFlightRequest, PullFlightResponse]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Summarizer_PullFlightServer = grpc.ClientStreamingServer[PullFlightRequest, PullFlightResponse]
 
 // Summarizer_ServiceDesc is the grpc.ServiceDesc for Summarizer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Summarizer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tutorial.Summarizer",
+	ServiceName: "flight.Summarizer",
 	HandlerType: (*SummarizerServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "PullFlight",
-			Handler:    _Summarizer_PullFlight_Handler,
+			StreamName:    "PullFlight",
+			Handler:       _Summarizer_PullFlight_Handler,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "summarizer.proto",
 }

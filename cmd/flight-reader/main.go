@@ -15,7 +15,10 @@ import (
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/scheduler"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
+	pb "github.com/ansoncht/flight-microservices/proto/src/summarizer"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -29,7 +32,12 @@ func main() {
 		log.Panicln(err)
 	}
 
-	httpClient, err := makeHTTPClient()
+	grpcClient, err := makeGRPCClient()
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	httpClient, err := makeHTTPClient(grpcClient)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -109,12 +117,12 @@ func makeLogger() error {
 func makeHTTPServer(ctx context.Context, httpClient *client.HTTPClient) (*http.Server, error) {
 	slog.Debug("Creating http server for the service")
 
-	httpCfg, err := config.MakeHTTPServerConfig()
+	cfg, err := config.MakeHTTPServerConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http server config: %w", err)
 	}
 
-	if port := httpCfg.Port; port == "" {
+	if port := cfg.Port; port == "" {
 		return nil, fmt.Errorf("empty port number")
 	}
 
@@ -123,27 +131,47 @@ func makeHTTPServer(ctx context.Context, httpClient *client.HTTPClient) (*http.S
 	mux.HandleFunc("/api/v1/fetch", server.FetchHandler(ctx, httpClient))
 
 	return &http.Server{
-		Addr:              ":" + httpCfg.Port,
+		Addr:              ":" + cfg.Port,
 		Handler:           mux,
-		ReadHeaderTimeout: time.Duration(httpCfg.ReadHeaderTimeout) * time.Second,
+		ReadHeaderTimeout: time.Duration(cfg.ReadHeaderTimeout) * time.Second,
 	}, nil
 }
 
 // makeHTTPClient create and instantiate a http client.
-func makeHTTPClient() (*client.HTTPClient, error) {
+func makeHTTPClient(grpc pb.SummarizerClient) (*client.HTTPClient, error) {
 	slog.Debug("Creating http client for the service")
 
-	httpCfg, err := config.MakeHTTPClientConfig()
+	cfg, err := config.MakeHTTPClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http client config: %w", err)
 	}
 
 	return &client.HTTPClient{
 		Client: &http.Client{
-			Timeout: time.Duration(httpCfg.Timeout) * time.Second,
+			Timeout: time.Duration(cfg.Timeout) * time.Second,
 		},
-		Endpoint: httpCfg.URL,
+		Endpoint: cfg.URL,
+		GRPC:     grpc,
 	}, nil
+}
+
+// makeGRPCClient create and instantiate a gRPC client.
+func makeGRPCClient() (pb.SummarizerClient, error) {
+	slog.Debug("Creating gRPC client for the service")
+
+	cfg, err := config.MakeGRPCClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get http gRPC config: %w", err)
+	}
+
+	conn, err := grpc.NewClient(cfg.URL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to server: %w", err)
+	}
+
+	return pb.NewSummarizerClient(
+		conn,
+	), nil
 }
 
 // makeScheduler create and instantiate a scheduler.
