@@ -24,6 +24,11 @@ type HTTPClientConfig struct {
 	Timeout int64  `env:"CLIENT_HTTP_TIMEOUT"`
 }
 
+// GRPCClientConfig represents gRPC client configurations.
+type GRPCClientConfig struct {
+	URL string `env:"CLIENT_GRPC_URL"`
+}
+
 // MakeLoggerConfig parses environment variables into a LoggerConfig struct.
 func MakeLoggerConfig() (*LoggerConfig, error) {
 	var cfg LoggerConfig
@@ -34,7 +39,7 @@ func MakeLoggerConfig() (*LoggerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeHTTPServerConfig parses environment variables into a HTTPConfig struct.
+// MakeHTTPServerConfig parses environment variables into a HTTPServerConfig struct.
 func MakeHTTPServerConfig() (*HTTPServerConfig, error) {
 	var cfg HTTPServerConfig
 	if err := env.Parse(&cfg); err != nil {
@@ -44,11 +49,21 @@ func MakeHTTPServerConfig() (*HTTPServerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeHTTPClientConfig parses environment variables into a HTTPConfig struct.
+// MakeHTTPClientConfig parses environment variables into a HTTPClientConfig struct.
 func MakeHTTPClientConfig() (*HTTPClientConfig, error) {
 	var cfg HTTPClientConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for http client config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// MakeGRPCClientConfig parses environment variables into a GRPCClientConfig struct.
+func MakeGRPCClientConfig() (*GRPCClientConfig, error) {
+	var cfg GRPCClientConfig
+	if err := env.Parse(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to get env for gRPC client config: %w", err)
 	}
 
 	return &cfg, nil
