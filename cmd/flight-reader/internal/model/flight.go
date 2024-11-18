@@ -24,3 +24,10 @@ type FlightData struct {
 	Cargo   bool         `json:"cargo"`
 	List    []FlightList `json:"list"`
 }
+
+// FlightDetail represents the flight detail being sent to server.
+type FlightDetail struct {
+	Flight      string
+	Origin      string
+	Destination string
+}
