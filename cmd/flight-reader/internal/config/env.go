@@ -12,21 +12,25 @@ type LoggerConfig struct {
 	Level string `env:"LOGGER_LEVEL"`
 }
 
-// HTTPConfig represents http server configurations.
+// HTTPServerConfig represents http server configurations.
 type HTTPServerConfig struct {
 	Port              string `env:"SERVER_HTTP_PORT"`
 	ReadHeaderTimeout int64  `env:"SERVER_HTTP_READ_TIMEOUT"`
 }
 
+// HTTPHandlerConfig represents http handler configurations.
+type HTTPHandlerConfig struct {
+	URL string `env:"HANDLER_API_URL"`
+}
+
 // HTTPClientConfig represents http client configurations.
 type HTTPClientConfig struct {
-	URL     string `env:"CLIENT_HTTP_FETCH_URL"`
-	Timeout int64  `env:"CLIENT_HTTP_TIMEOUT"`
+	Timeout int64 `env:"CLIENT_HTTP_TIMEOUT"`
 }
 
 // GRPCClientConfig represents gRPC client configurations.
 type GRPCClientConfig struct {
-	URL string `env:"CLIENT_GRPC_URL"`
+	ADDRESS string `env:"CLIENT_GRPC_ADDRESS"`
 }
 
 // MakeLoggerConfig parses environment variables into a LoggerConfig struct.
@@ -39,9 +43,19 @@ func MakeLoggerConfig() (*LoggerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeHTTPServerConfig parses environment variables into a HTTPServerConfig struct.
+// MakeMakeHTTPServerConfig parses environment variables into a MakeHTTPServerConfig struct.
 func MakeHTTPServerConfig() (*HTTPServerConfig, error) {
 	var cfg HTTPServerConfig
+	if err := env.Parse(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// MakeHTTPHandlerConfig parses environment variables into a MakeHTTPServerConfig struct.
+func MakeHTTPHandlerConfig() (*HTTPHandlerConfig, error) {
+	var cfg HTTPHandlerConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
 	}
