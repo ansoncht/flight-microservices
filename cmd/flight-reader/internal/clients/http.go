@@ -33,7 +33,7 @@ type HTTPClient struct {
 }
 
 func NewHTTPClient() (*HTTPClient, error) {
-	slog.Debug("Creating http client for the service")
+	slog.Info("Creating http client for the service")
 
 	cfg, err := config.MakeHTTPClientConfig()
 	if err != nil {
