@@ -20,6 +20,8 @@ jobs:
           filters: |
             flight-reader:
               - 'cmd/flight-reader/**'
+            flight-processor:
+              - 'cmd/flight-processor/**'
 
   build:
     needs: changes
