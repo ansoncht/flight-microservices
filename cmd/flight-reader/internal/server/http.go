@@ -21,7 +21,7 @@ type Server struct {
 }
 
 func NewHTTPServer(httpClient *clients.HTTPClient, grpcClient *clients.GRPCClient) (*Server, error) {
-	slog.Debug("Creating http server for the service")
+	slog.Info("Creating http server for the service")
 
 	handlerCfg, err := config.MakeHTTPHandlerConfig()
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *Server) ServeHTTP() error {
 	slog.Info("Starting HTTP server", "port", s.httpServer.Addr)
 
 	if err := s.httpServer.ListenAndServe(); err != nil {
-		return fmt.Errorf("failed to start httpp server: %w", err)
+		return fmt.Errorf("failed to start http server: %w", err)
 	}
 
 	return nil

@@ -19,11 +19,11 @@ type GRPCClient struct {
 }
 
 func NewGRPCClient() (*GRPCClient, error) {
-	slog.Debug("Creating gRPC client for the service")
+	slog.Info("Creating gRPC client for the service")
 
 	cfg, err := config.MakeGRPCClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get http gRPC config: %w", err)
+		return nil, fmt.Errorf("failed to get gRPC client config: %w", err)
 	}
 
 	conn, err := grpc.NewClient(cfg.ADDRESS, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -91,7 +91,7 @@ func (c *GRPCClient) SendFlightStream(
 		return fmt.Errorf("failed to close stream: %w", err)
 	}
 
-	slog.Info("received response when closing stream", "total", strconv.Itoa(int(resp.Transaction)))
+	slog.Info("Received response from server", "total", strconv.Itoa(int(resp.Transaction)))
 
 	return nil
 }

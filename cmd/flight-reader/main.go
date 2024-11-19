@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -10,8 +9,8 @@ import (
 	"syscall"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/clients"
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
+	logger "github.com/ansoncht/flight-microservices/pkg/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -21,7 +20,7 @@ func main() {
 	defer stop()
 
 	// make app-wide logger
-	err := makeLogger()
+	err := logger.MakeLogger()
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -59,48 +58,4 @@ func main() {
 	}
 
 	slog.Info("flight reader has fully stopped")
-}
-
-// makeLogger create and instantiate a default logger.
-func makeLogger() error {
-	slog.Debug("Creating logger for the service")
-
-	loggerCfg, err := config.MakeLoggerConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get logger config: %w", err)
-	}
-
-	// set slog level
-	var level slog.Leveler
-	addSource := false
-	switch loggerCfg.Level {
-	case "debug":
-		level = slog.LevelDebug
-		addSource = true
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		return fmt.Errorf("invalid log level: %s", loggerCfg.Level)
-	}
-
-	// set slog source logging
-	var handler slog.Handler
-	opts := &slog.HandlerOptions{
-		Level:     level,
-		AddSource: addSource,
-	}
-
-	// set slog format
-	handler = slog.NewTextHandler(os.Stdout, opts)
-	if loggerCfg.JSON {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	}
-
-	slog.SetDefault(slog.New(handler))
-
-	return nil
 }
