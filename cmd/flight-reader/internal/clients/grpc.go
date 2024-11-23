@@ -58,13 +58,13 @@ func (c *GRPCClient) SendFlightStream(
 
 	for _, data := range flightData {
 		for _, flightList := range data.List {
-			// Get the last destination
+			// get the last destination
 			var destination string
 			if len(flightList.Destination) > 0 {
 				destination = flightList.Destination[len(flightList.Destination)-1]
 			}
 
-			// Get the flying flight number
+			// get the flying flight number
 			var flightNo string
 			if len(flightList.Flight) > 0 {
 				flightNo = flightList.Flight[0].No

@@ -56,11 +56,27 @@ func NewHTTPServer(httpClient *clients.HTTPClient, grpcClient *clients.GRPCClien
 	return srv, nil
 }
 
-func (s *Server) ServeHTTP() error {
+func (s *Server) ServeHTTP(ctx context.Context) error {
 	slog.Info("Starting HTTP server", "port", s.httpServer.Addr)
 
-	if err := s.httpServer.ListenAndServe(); err != nil {
-		return fmt.Errorf("failed to start http server: %w", err)
+	// Start the server in a goroutine
+	go func() {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("HTTP server error", "error", err)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("Stopping HTTP server due to context cancellation")
+
+	return nil
+}
+
+func (s *Server) Close(ctx context.Context) error {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		slog.Error("Failed to shutdown HTTP server", "error", err)
+
+		return fmt.Errorf("failed to shutdown http server: %w", err)
 	}
 
 	return nil
@@ -76,7 +92,6 @@ func (s *Server) ScheduleJob(ctx context.Context) error {
 	}
 
 	durationUntilNextRun := nextRun.Sub(now)
-	time.Sleep(durationUntilNextRun)
 
 	ticker := time.NewTicker(hoursInADay * time.Hour)
 	defer ticker.Stop()
@@ -87,6 +102,7 @@ func (s *Server) ScheduleJob(ctx context.Context) error {
 			if err := s.processFlights(ctx); err != nil {
 				return fmt.Errorf("failed to fetch flights: %w", err)
 			}
+			time.Sleep(durationUntilNextRun)
 		case <-ctx.Done():
 			slog.Info("Stopping scheduler due to context cancellation")
 
@@ -119,13 +135,13 @@ func (s *Server) fetchHandler() http.HandlerFunc {
 }
 
 func (s *Server) processFlights(ctx context.Context) error {
-	// Fetch flight data
+	// fetch flight data
 	flightData, err := s.httpClient.FetchFlightsFromAPI(ctx, s.URL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch flights: %w", err)
 	}
 
-	// Send flight data to processor via gRPC
+	// send flight data to processor via gRPC
 	if err := s.grpcClient.SendFlightStream(ctx, flightData); err != nil {
 		return fmt.Errorf("failed to send flights to processor: %w", err)
 	}

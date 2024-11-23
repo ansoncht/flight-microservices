@@ -47,6 +47,10 @@ func NewHTTPClient() (*HTTPClient, error) {
 	}, nil
 }
 
+func (c *HTTPClient) Close() {
+	c.client.CloseIdleConnections()
+}
+
 // FetchFlightsFromAPI fetch information from the predefined API and returns
 // the flight data.
 func (c *HTTPClient) FetchFlightsFromAPI(
