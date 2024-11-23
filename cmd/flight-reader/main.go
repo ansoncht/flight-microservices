@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -43,7 +44,7 @@ func main() {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return httpServer.ServeHTTP()
+		return httpServer.ServeHTTP(gCtx)
 	})
 
 	g.Go(func() error {
@@ -52,10 +53,42 @@ func main() {
 
 	<-gCtx.Done()
 
+	if err := shutdown(ctx, grpcClient, httpClient, httpServer); err != nil {
+		slog.Error("Failed to perform graceful shutdown", "error", err)
+		log.Panicln(err)
+	}
+
 	if err := g.Wait(); err != nil {
 		slog.Error("Encounter unexpected error", "error", err)
 		log.Panicln(err)
 	}
 
 	slog.Info("flight reader has fully stopped")
+}
+
+// shutdown turns off clients and server gracefully.
+func shutdown(
+	ctx context.Context,
+	grpcClient *clients.GRPCClient,
+	httpClient *clients.HTTPClient,
+	httpServer *server.Server,
+) error {
+	// close the http server
+	if err := httpServer.Close(ctx); err != nil {
+		slog.Error("Failed to shutdown HTTP server", "error", err)
+
+		return fmt.Errorf("failed to gracefully shutdown http server")
+	}
+
+	// close the http client
+	httpClient.Close()
+
+	// close the gRPC client
+	if err := grpcClient.Close(); err != nil {
+		slog.Error("Failed to shutdown gRPC client", "error", err)
+
+		return fmt.Errorf("failed to gracefully shutdown gRPC client")
+	}
+
+	return nil
 }
