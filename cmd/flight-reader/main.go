@@ -53,7 +53,7 @@ func main() {
 
 	<-gCtx.Done()
 
-	if err := shutdown(ctx, grpcClient, httpClient, httpServer); err != nil {
+	if err := safeShutDown(ctx, grpcClient, httpClient, httpServer); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
 		log.Panicln(err)
 	}
@@ -66,8 +66,8 @@ func main() {
 	slog.Info("flight reader has fully stopped")
 }
 
-// shutdown turns off clients and server gracefully.
-func shutdown(
+// safeShutDown turns off clients and server gracefully.
+func safeShutDown(
 	ctx context.Context,
 	grpcClient *clients.GRPCClient,
 	httpClient *clients.HTTPClient,
