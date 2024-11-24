@@ -59,17 +59,25 @@ func NewHTTPServer(httpClient *clients.HTTPClient, grpcClient *clients.GRPCClien
 func (s *Server) ServeHTTP(ctx context.Context) error {
 	slog.Info("Starting HTTP server", "port", s.httpServer.Addr)
 
+	c := make(chan error)
+
 	// Start the server in a goroutine
 	go func() {
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("HTTP server error", "error", err)
+
+			c <- fmt.Errorf("failed to start http server: %w", err)
 		}
 	}()
 
-	<-ctx.Done()
-	slog.Info("Stopping HTTP server due to context cancellation")
+	select {
+	case <-ctx.Done():
+		slog.Info("Stopping HTTP server due to context cancellation")
 
-	return nil
+		return nil
+	case err := <-c:
+		return err
+	}
 }
 
 func (s *Server) Close(ctx context.Context) error {

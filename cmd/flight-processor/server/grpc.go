@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type GRPCSERVER struct {
+type GRPCServer struct {
 	server *grpc.Server
 	lis    net.Listener
 }
@@ -21,7 +22,7 @@ type server struct {
 	pb.SummarizerServer
 }
 
-func NewGRPCServer() (*GRPCSERVER, error) {
+func NewGRPCServer() (*GRPCServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
 	cfg, err := config.MakeGRPCServerConfig()
@@ -37,24 +38,37 @@ func NewGRPCServer() (*GRPCSERVER, error) {
 	s := grpc.NewServer()
 	pb.RegisterSummarizerServer(s, &server{})
 
-	return &GRPCSERVER{
+	return &GRPCServer{
 		server: s,
 		lis:    lis,
 	}, nil
 }
 
-func (s *GRPCSERVER) ServeGRPC() error {
+func (s *GRPCServer) ServeGRPC(ctx context.Context) error {
 	slog.Info("Starting gRPC server", "port", s.lis.Addr().String())
 
-	if err := s.server.Serve(s.lis); err != nil {
-		return fmt.Errorf("failed to start gRPC server: %w", err)
-	}
+	c := make(chan error)
 
-	return nil
+	// Start the server in a goroutine
+	go func() {
+		if err := s.server.Serve(s.lis); err != nil {
+			slog.Error("gRPC server error", "error", err)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("Stopping gRPC server due to context cancellation")
+
+		return nil
+
+	case err := <-c:
+		return err
+	}
 }
 
-func (s *GRPCSERVER) Close() {
-	s.server.Stop()
+func (s *GRPCServer) Close() {
+	s.server.GracefulStop()
 }
 
 func (s *server) PullFlight(stream pb.Summarizer_PullFlightServer) error {
