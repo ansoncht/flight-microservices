@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/db"
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/server"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/server"
 	logger "github.com/ansoncht/flight-microservices/pkg/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -26,12 +26,12 @@ func main() {
 		log.Panicln(err)
 	}
 
-	grpcServer, err := server.NewGRPCServer()
+	mongoDB, err := db.NewMongoDB()
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	mongoDB, err := db.NewMongoDB()
+	grpcServer, err := server.NewGRPCServer(mongoDB)
 	if err != nil {
 		log.Panicln(err)
 	}
