@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/summarizer"
 	pb "github.com/ansoncht/flight-microservices/proto/src/summarizer"
 	"google.golang.org/grpc"
 )
@@ -20,9 +22,10 @@ type GRPCServer struct {
 
 type server struct {
 	pb.SummarizerServer
+	mongoDB *db.MongoDB
 }
 
-func NewGRPCServer() (*GRPCServer, error) {
+func NewGRPCServer(mongoDB *db.MongoDB) (*GRPCServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
 	cfg, err := config.MakeGRPCServerConfig()
@@ -36,7 +39,9 @@ func NewGRPCServer() (*GRPCServer, error) {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterSummarizerServer(s, &server{})
+	pb.RegisterSummarizerServer(s, &server{
+		mongoDB: mongoDB,
+	})
 
 	return &GRPCServer{
 		server: s,
@@ -73,12 +78,18 @@ func (s *GRPCServer) Close() {
 
 func (s *server) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 	slog.Info("Receiving stream of flight data from reader")
+
 	transaction := int64(0)
+	summarizer := summarizer.NewSummarizer(s.mongoDB)
 
 	for {
 		flight, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			slog.Info("Sent response to client", "total", transaction)
+
+			if err := summarizer.StoreSummary(stream.Context(), "2024-11-07"); err != nil {
+				return fmt.Errorf("failed to store summary: %w", err)
+			}
 
 			if err := stream.SendAndClose(&pb.PullFlightResponse{
 				Transaction: transaction,
@@ -93,8 +104,9 @@ func (s *server) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 		}
 
 		transaction++
+		summarizer.AddFlight(flight.Destination)
 
-		slog.Debug("flight info",
+		slog.Debug("Processed flight info",
 			"flight no", flight.Flight,
 			"origin", flight.Origin,
 			"destination", flight.Destination,

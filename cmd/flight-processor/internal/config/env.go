@@ -13,7 +13,9 @@ type GRPCServerConfig struct {
 
 // MongoDBConfig represents Mongo DB configurations.
 type MongoDBConfig struct {
-	URI string `env:"MONGO_DB_URI"`
+	URI        string `env:"MONGO_DB_URI"`
+	DB         string `env:"MONGO_DB_NAME"`
+	COLLECTION string `env:"MONGO_DB_COLLECTION"`
 }
 
 // MakeGRPCServerConfig parses environment variables into a GRPCServerConfig struct.
