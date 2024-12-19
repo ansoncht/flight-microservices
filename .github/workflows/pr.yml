@@ -22,6 +22,8 @@ jobs:
               - 'cmd/flight-reader/**'
             flight-processor:
               - 'cmd/flight-processor/**'
+            flight-poster:
+              - 'cmd/flight-poster/**'
 
   build:
     needs: changes
