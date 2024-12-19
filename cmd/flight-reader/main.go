@@ -41,6 +41,8 @@ func main() {
 		log.Panicln(err)
 	}
 
+	// make errgroup to excute concurrent tasks and
+	// manage context cancellation
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
