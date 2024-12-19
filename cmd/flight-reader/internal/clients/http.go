@@ -17,19 +17,8 @@ const (
 	statusOK = http.StatusOK
 )
 
-type FlightFetcher interface {
-	FetchFlights(ctx context.Context) ([]model.FlightData, error)
-}
-
-type AirportFetcher struct {
-	// client  *http.Client
-	// airport string
-	// url     string
-}
-
 type HTTPClient struct {
 	client *http.Client
-	// fetchers []FlightFetcher
 }
 
 func NewHTTPClient() (*HTTPClient, error) {
