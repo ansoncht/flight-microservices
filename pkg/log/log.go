@@ -8,22 +8,22 @@ import (
 	"github.com/caarlos0/env"
 )
 
-// LoggerConfig represents logger configurations.
+// LoggerConfig represents the configurations for the logger.
 type LoggerConfig struct {
-	JSON  bool   `env:"LOGGER_JSON"`
-	Level string `env:"LOGGER_LEVEL"`
+	JSON  bool   `env:"SERVICE_LOG_JSON"`  // Format of the logger
+	Level string `env:"SERVICE_LOG_LEVEL"` // Level of the logger
 }
 
-// MakeLogger create and instantiate a default logger.
-func MakeLogger() error {
-	slog.Debug("Creating logger for the service")
+// NewLogger creates and initializes the default logger.
+func NewLogger() error {
+	slog.Debug("Initializing logger for the service")
 
-	loggerCfg, err := parseConfig()
+	loggerCfg, err := loadLoggerConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get logger config: %w", err)
 	}
 
-	// set slog level
+	// Set slog level
 	var level slog.Leveler
 	addSource := false
 	switch loggerCfg.Level {
@@ -40,14 +40,14 @@ func MakeLogger() error {
 		return fmt.Errorf("invalid log level: %s", loggerCfg.Level)
 	}
 
-	// set slog source logging
+	// Set slog source logging
 	var handler slog.Handler
 	opts := &slog.HandlerOptions{
 		Level:     level,
 		AddSource: addSource,
 	}
 
-	// set slog format
+	// Set slog format
 	handler = slog.NewTextHandler(os.Stdout, opts)
 	if loggerCfg.JSON {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
@@ -58,8 +58,8 @@ func MakeLogger() error {
 	return nil
 }
 
-// parseConfig parses environment variables into a LoggerConfig struct.
-func parseConfig() (*LoggerConfig, error) {
+// loadLoggerConfig parses environment variables into a LoggerConfig struct.
+func loadLoggerConfig() (*LoggerConfig, error) {
 	var cfg LoggerConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for logger config: %w", err)

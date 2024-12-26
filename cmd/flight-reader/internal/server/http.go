@@ -5,67 +5,69 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/clients"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
 )
 
-const hoursInADay = 24
-
-type Server struct {
-	httpServer *http.Server
-	httpClient *clients.HTTPClient
-	grpcClient *clients.GRPCClient
-	URL        string
+type HTTP struct {
+	server     *http.Server
+	grpcClient *client.GrpcClient
+	fetchers   []fetcher.Fetcher
 }
 
-func NewHTTPServer(httpClient *clients.HTTPClient, grpcClient *clients.GRPCClient) (*Server, error) {
-	slog.Info("Creating http server for the service")
+func NewHTTP(
+	grpcClient *client.GrpcClient,
+	fetchers []fetcher.Fetcher,
+) (*HTTP, error) {
+	slog.Info("Creating HTTP server for the service")
 
-	handlerCfg, err := config.MakeHTTPHandlerConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get http handler config: %w", err)
-	}
-
-	srv := &Server{
-		httpClient: httpClient,
+	h := &HTTP{
 		grpcClient: grpcClient,
-		URL:        handlerCfg.URL,
+		fetchers:   fetchers,
 	}
 
 	// register endpoints
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/fetch", srv.fetchHandler())
+	mux.HandleFunc("/api/v1/fetch", h.handler())
 
-	serverCfg, err := config.MakeHTTPServerConfig()
+	cfg, err := config.LoadHTTPServerConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get http server config: %w", err)
+		return nil, fmt.Errorf("failed to load http server config: %w", err)
 	}
 
-	if serverCfg.Port == "" {
+	if cfg.Port == "" {
 		return nil, fmt.Errorf("empty port number")
 	}
 
-	srv.httpServer = &http.Server{
-		Addr:              ":" + serverCfg.Port,
-		Handler:           mux,
-		ReadHeaderTimeout: time.Duration(serverCfg.ReadHeaderTimeout) * time.Second,
+	port, _ := strconv.Atoi(cfg.Port)
+	if port < 1 {
+		return nil, fmt.Errorf("port number must be greater than 1")
 	}
 
-	return srv, nil
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           mux,
+		ReadHeaderTimeout: time.Duration(cfg.Timeout) * time.Second,
+	}
+
+	return &HTTP{
+		server: server,
+	}, nil
 }
 
-func (s *Server) ServeHTTP(ctx context.Context) error {
-	slog.Info("Starting HTTP server", "port", s.httpServer.Addr)
+func (h *HTTP) ServeHTTP(ctx context.Context) error {
+	slog.Info("Starting HTTP server", "port", h.server.Addr)
 
 	c := make(chan error)
 
 	// Start the server in a goroutine
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("HTTP server error", "error", err)
-
+		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Failed to start HTTP server", "error", err)
 			c <- fmt.Errorf("failed to start http server: %w", err)
 		}
 	}()
@@ -73,86 +75,36 @@ func (s *Server) ServeHTTP(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		slog.Info("Stopping HTTP server due to context cancellation")
-
 		return nil
 	case err := <-c:
 		return err
 	}
 }
 
-func (s *Server) Close(ctx context.Context) error {
-	if err := s.httpServer.Shutdown(ctx); err != nil {
-		slog.Error("Failed to shutdown HTTP server", "error", err)
-
-		return fmt.Errorf("failed to shutdown http server: %w", err)
+func (h *HTTP) Close(ctx context.Context) error {
+	if err := h.server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("failed to shutdown: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Server) ScheduleJob(ctx context.Context) error {
-	slog.Info("Starting Scheduler")
-
-	now := time.Now()
-	nextRun := time.Date(now.Year(), now.Month(), now.Day(), 2, 0, 0, 0, now.Location())
-	if now.After(nextRun) {
-		nextRun = nextRun.Add(hoursInADay * time.Hour)
-	}
-
-	durationUntilNextRun := nextRun.Sub(now)
-
-	ticker := time.NewTicker(hoursInADay * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := s.processFlights(ctx); err != nil {
-				return fmt.Errorf("failed to fetch flights: %w", err)
-			}
-			time.Sleep(durationUntilNextRun)
-		case <-ctx.Done():
-			slog.Info("Stopping scheduler due to context cancellation")
-
-			return nil
-		}
-	}
-}
-
-func (s *Server) fetchHandler() http.HandlerFunc {
+func (h *HTTP) handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		slog.Info("Endpoint initiates manual flights fetching")
 
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		slog.Info("Received request", "method", r.Method, "url", r.URL.String())
-
-		if err := s.processFlights(r.Context()); err != nil {
-			slog.Error("Failed to process flights", "error", err)
-
+		if err := fetcher.ProcessFlights(r.Context(), h.grpcClient, h.fetchers, "VHHH"); err != nil {
+			slog.Error("Failed to process flight", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
-
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "Successfully triggered a manual fetch")
 	}
-}
-
-func (s *Server) processFlights(ctx context.Context) error {
-	// fetch flight data
-	flightData, err := s.httpClient.FetchFlightsFromAPI(ctx, s.URL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch flights: %w", err)
-	}
-
-	// send flight data to processor via gRPC
-	if err := s.grpcClient.SendFlightStream(ctx, flightData); err != nil {
-		return fmt.Errorf("failed to send flights to processor: %w", err)
-	}
-
-	return nil
 }
