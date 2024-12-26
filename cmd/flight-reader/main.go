@@ -5,92 +5,140 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/clients"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/scheduler"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
 	logger "github.com/ansoncht/flight-microservices/pkg/log"
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	// create context to listen to os signals
+	// Create a context that listens for OS interrupt signals (e.g., Ctrl+C)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// make app-wide logger
-	err := logger.MakeLogger()
+	// Initialize the application-wide logger
+	err := logger.NewLogger()
 	if err != nil {
-		log.Panicln(err)
+		slog.Error("Failed to initialize custom logger", "error", err)
+		return
 	}
 
-	grpcClient, err := clients.NewGRPCClient()
+	// Create a gRPC and HTTP clients
+	grpcClient, err := client.NewGRPCClient()
 	if err != nil {
-		log.Panicln(err)
+		slog.Error("Failed to create gRPC client", "error", err)
+		return
 	}
 
-	httpClient, err := clients.NewHTTPClient()
+	httpClient, err := client.NewHTTPClient()
 	if err != nil {
-		log.Panicln(err)
+		slog.Error("Failed to create HTTP client", "error", err)
+		return
 	}
 
-	httpServer, err := server.NewHTTPServer(httpClient, grpcClient)
+	// Create fetchers for scheduler and http server
+	fetchers, err := initializeFetchers(httpClient)
 	if err != nil {
-		log.Panicln(err)
+		slog.Error("Failed to create fetchers", "error", err)
+		return
 	}
 
-	// make errgroup to excute concurrent tasks and
-	// manage context cancellation
-	g, gCtx := errgroup.WithContext(ctx)
+	// Create a HTTP server with the grpc client and fetchers
+	httpServer, err := server.NewHTTP(grpcClient, fetchers)
+	if err != nil {
+		slog.Error("Failed to create HTTP server", "error", err)
+		return
+	}
 
-	g.Go(func() error {
-		return httpServer.ServeHTTP(gCtx)
-	})
+	// Create a scheduler with the grpc client and fetchers
+	scheduler, err := scheduler.NewScheduler(grpcClient, fetchers)
+	if err != nil {
+		slog.Error("Failed to create scheduler", "error", err)
+		return
+	}
 
-	g.Go(func() error {
-		return httpServer.ScheduleJob(gCtx)
-	})
+	// Run the server and schedule jobs concurrently
+	if err := startBackgroundJobs(ctx, httpServer, scheduler); err != nil {
+		slog.Error("Failed to run background jobs concurrently", "error", err)
+		return
+	}
 
-	<-gCtx.Done()
-
+	// Perform a safe shutdown of the server and clients
 	if err := safeShutDown(ctx, grpcClient, httpClient, httpServer); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
 		log.Panicln(err)
 	}
 
-	if err := g.Wait(); err != nil {
-		slog.Error("Encounter unexpected error", "error", err)
-		log.Panicln(err)
-	}
-
-	slog.Info("flight reader has fully stopped")
+	slog.Info("Flight Reader service has fully stopped")
 }
 
-// safeShutDown turns off clients and server gracefully.
+func initializeFetchers(httpClient *http.Client) ([]fetcher.Fetcher, error) {
+	flightFetcher, err := fetcher.NewFlightFetcher(httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create flight fetcher: %w", err)
+	}
+
+	routeFetcher, err := fetcher.NewRouteFetcher(httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create route fetcher: %w", err)
+	}
+
+	return []fetcher.Fetcher{flightFetcher, routeFetcher}, nil
+}
+
+func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP, scheduler *scheduler.Scheduler) error {
+	// Use errgroup to manage concurrent tasks
+	g, gCtx := errgroup.WithContext(ctx)
+
+	// Start the HTTP server and job scheduler concurrently
+	g.Go(func() error {
+		return httpServer.ServeHTTP(gCtx)
+	})
+
+	g.Go(func() error {
+		return scheduler.ScheduleJob(gCtx)
+	})
+
+	// Wait for the context to be done (e.g., due to an interrupt signal)
+	<-gCtx.Done()
+
+	// Wait for all goroutines to finish
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("failed to run concurrent tasks: %w", err)
+	}
+
+	return nil
+}
+
+// safeShutDown shuts down clients and server gracefully.
 func safeShutDown(
 	ctx context.Context,
-	grpcClient *clients.GRPCClient,
-	httpClient *clients.HTTPClient,
-	httpServer *server.Server,
+	grpcClient *client.GrpcClient,
+	httpClient *http.Client,
+	httpServer *server.HTTP,
 ) error {
-	// close the http server
+	// Attempt to close the HTTP server
 	if err := httpServer.Close(ctx); err != nil {
 		slog.Error("Failed to shutdown HTTP server", "error", err)
-
-		return fmt.Errorf("failed to gracefully shutdown http server")
+		return fmt.Errorf("failed to shutdown HTTP server: %w", err)
 	}
 
-	// close the http client
-	httpClient.Close()
+	// Close the HTTP client
+	httpClient.CloseIdleConnections()
 
-	// close the gRPC client
+	// Attempt to close the gRPC client
 	if err := grpcClient.Close(); err != nil {
 		slog.Error("Failed to shutdown gRPC client", "error", err)
-
-		return fmt.Errorf("failed to gracefully shutdown gRPC client")
+		return fmt.Errorf("failed to shutdown gRPC client: %w", err)
 	}
 
+	// Return nil if all shutdowns were successful
 	return nil
 }

@@ -6,29 +6,41 @@ import (
 	"github.com/caarlos0/env"
 )
 
-// HTTPServerConfig represents http server configurations.
+// HTTPServerConfig represents the configuration for the HTTP server.
 type HTTPServerConfig struct {
-	Port              string `env:"SERVER_HTTP_PORT"`
-	ReadHeaderTimeout int64  `env:"SERVER_HTTP_READ_TIMEOUT"`
+	Port    string `env:"FLIGHT_READER_HTTP_PORT"`    // Port on which the HTTP server listens
+	Timeout int64  `env:"FLIGHT_READER_HTTP_TIMEOUT"` // Timeout for reading HTTP headers in seconds
 }
 
-// HTTPHandlerConfig represents http handler configurations.
-type HTTPHandlerConfig struct {
-	URL string `env:"HANDLER_API_URL"`
-}
-
-// HTTPClientConfig represents http client configurations.
+// HTTPClientConfig represents the configuration for the HTTP client.
 type HTTPClientConfig struct {
-	Timeout int64 `env:"CLIENT_HTTP_TIMEOUT"`
+	Timeout int64 `env:"FLIGHT_READER_HTTP_TIMEOUT"` // Timeout for reading HTTP headers in seconds
 }
 
-// GRPCClientConfig represents gRPC client configurations.
-type GRPCClientConfig struct {
-	ADDRESS string `env:"CLIENT_GRPC_ADDRESS"`
+// FlightFetcherConfig represents the configuration for flight fetcher.
+type FlightFetcherConfig struct {
+	URL  string `env:"FLIGHT_READER_FLIGHT_URL"`  // Base URL for the flight fetcher
+	User string `env:"FLIGHT_READER_FLIGHT_USER"` // Username for accessing the API
+	Pass string `env:"FLIGHT_READER_FLIGHT_PASS"` // Password for accessing the API
 }
 
-// MakeMakeHTTPServerConfig parses environment variables into a MakeHTTPServerConfig struct.
-func MakeHTTPServerConfig() (*HTTPServerConfig, error) {
+// RouteFetcherConfig represents the configuration for route fetcher.
+type RouteFetcherConfig struct {
+	URL string `env:"FLIGHT_READER_ROUTE_URL"` // Base URL for the route fetcher
+}
+
+// GrpcClientConfig represents the configuration for the gRPC client.
+type GrpcClientConfig struct {
+	Address string `env:"FLIGHT_READER_GRPC_ADDRESS"` // Address of the gRPC server which gRPC client connects
+}
+
+// SchedulerConfig represents the configuration for the scheduler.
+type SchedulerConfig struct {
+	Airports string `env:"FLIGHT_READER_SCHEDULER_AIRPORTS"` // Airports which the scheduler fetches data for
+}
+
+// LoadHTTPServerConfig parses environment variables into a HTTPServerConfig struct.
+func LoadHTTPServerConfig() (*HTTPServerConfig, error) {
 	var cfg HTTPServerConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
@@ -37,9 +49,9 @@ func MakeHTTPServerConfig() (*HTTPServerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeHTTPHandlerConfig parses environment variables into a MakeHTTPServerConfig struct.
-func MakeHTTPHandlerConfig() (*HTTPHandlerConfig, error) {
-	var cfg HTTPHandlerConfig
+// LoadHTTPClientConfig parses environment variables into a HTTPServerConfig struct.
+func LoadHTTPClientConfig() (*HTTPClientConfig, error) {
+	var cfg HTTPClientConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
 	}
@@ -47,21 +59,41 @@ func MakeHTTPHandlerConfig() (*HTTPHandlerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeHTTPClientConfig parses environment variables into a HTTPClientConfig struct.
-func MakeHTTPClientConfig() (*HTTPClientConfig, error) {
-	var cfg HTTPClientConfig
+// LoadFlightFetcherConfig parses environment variables into a FlightFetcherConfig struct.
+func LoadFlightFetcherConfig() (*FlightFetcherConfig, error) {
+	var cfg FlightFetcherConfig
 	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for http client config: %w", err)
+		return nil, fmt.Errorf("failed to get env for flight fetcher config: %w", err)
 	}
 
 	return &cfg, nil
 }
 
-// MakeGRPCClientConfig parses environment variables into a GRPCClientConfig struct.
-func MakeGRPCClientConfig() (*GRPCClientConfig, error) {
-	var cfg GRPCClientConfig
+// LoadRouteFetcherConfig parses environment variables into a RouteFetcherConfig struct.
+func LoadRouteFetcherConfig() (*RouteFetcherConfig, error) {
+	var cfg RouteFetcherConfig
+	if err := env.Parse(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to get env for route fetcher config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// LoadGrpcClientConfig parses environment variables into a GRPCClientConfig struct.
+func LoadGrpcClientConfig() (*GrpcClientConfig, error) {
+	var cfg GrpcClientConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for gRPC client config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// LoadSchedulerConfig parses environment variables into a SchedulerConfig struct.
+func LoadSchedulerConfig() (*SchedulerConfig, error) {
+	var cfg SchedulerConfig
+	if err := env.Parse(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to get env for scheduler config: %w", err)
 	}
 
 	return &cfg, nil
