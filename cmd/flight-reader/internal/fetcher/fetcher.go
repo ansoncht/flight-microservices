@@ -46,7 +46,7 @@ func ProcessFlights(
 	// For each flight entry, process its route concurrently
 	for _, entry := range flightEntries {
 		g.Go(func() error {
-			if err := processFlightRoutes(ctx, entry, fetchers[1], client); err != nil {
+			if err := fetchRoute(ctx, entry, fetchers[1], client); err != nil {
 				return err
 			}
 			return nil
@@ -95,9 +95,9 @@ func fetchFlights(
 	return entries, nil
 }
 
-// processFlightRoutes processes flight routes for a single flight entry
+// fetchRoute fetches flight route for a single flight entry
 // by fetching route information and sending the flight data via gRPC.
-func processFlightRoutes(
+func fetchRoute(
 	ctx context.Context,
 	entry *model.FlightResponse,
 	routeFetcher Fetcher,
