@@ -54,9 +54,9 @@ func NewHTTP(
 		ReadHeaderTimeout: time.Duration(cfg.Timeout) * time.Second,
 	}
 
-	return &HTTP{
-		server: server,
-	}, nil
+	h.server = server
+
+	return h, nil
 }
 
 func (h *HTTP) ServeHTTP(ctx context.Context) error {
