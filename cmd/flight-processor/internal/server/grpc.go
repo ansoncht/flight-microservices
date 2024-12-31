@@ -16,47 +16,45 @@ import (
 )
 
 type GRPCServer struct {
-	server *grpc.Server
-	lis    net.Listener
+	pb.UnimplementedSummarizerServer
+	server  *grpc.Server
+	lis     net.Listener
+	mongoDB *db.Mongo
 }
 
-type server struct {
-	pb.SummarizerServer
-	mongoDB *db.MongoDB
-}
-
-func NewGRPCServer(mongoDB *db.MongoDB) (*GRPCServer, error) {
+func NewGRPC(mongoDB *db.Mongo) (*GRPCServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
-	cfg, err := config.MakeGRPCServerConfig()
+	cfg, err := config.LoadGrpcServerConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gRPC server config: %w", err)
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.PORT))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterSummarizerServer(s, &server{
+	grpcServer := &GRPCServer{
+		server:  s,
+		lis:     lis,
 		mongoDB: mongoDB,
-	})
+	}
 
-	return &GRPCServer{
-		server: s,
-		lis:    lis,
-	}, nil
+	pb.RegisterSummarizerServer(s, grpcServer)
+
+	return grpcServer, nil
 }
 
-func (s *GRPCServer) ServeGRPC(ctx context.Context) error {
-	slog.Info("Starting gRPC server", "port", s.lis.Addr().String())
+func (g *GRPCServer) ServeGRPC(ctx context.Context) error {
+	slog.Info("Starting gRPC server", "port", g.lis.Addr().String())
 
 	c := make(chan error)
 
 	// Start the server in a goroutine
 	go func() {
-		if err := s.server.Serve(s.lis); err != nil {
+		if err := g.server.Serve(g.lis); err != nil {
 			slog.Error("gRPC server error", "error", err)
 		}
 	}()
@@ -72,23 +70,23 @@ func (s *GRPCServer) ServeGRPC(ctx context.Context) error {
 	}
 }
 
-func (s *GRPCServer) Close() {
-	s.server.GracefulStop()
+func (g *GRPCServer) Close() {
+	g.server.GracefulStop()
 }
 
-func (s *server) PullFlight(stream pb.Summarizer_PullFlightServer) error {
+func (g *GRPCServer) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 	slog.Info("Receiving stream of flight data from reader")
 
 	transaction := int64(0)
-	summarizer := summarizer.NewSummarizer(s.mongoDB)
+	summarizer := summarizer.NewSummarizer()
 
 	for {
 		flight, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			slog.Info("Sent response to client", "total", transaction)
 
-			if err := summarizer.StoreSummary(stream.Context(), "2024-11-07"); err != nil {
-				return fmt.Errorf("failed to store summary: %w", err)
+			if err := g.mongoDB.InsertSummary(stream.Context(), summarizer.GetFlightCounts(), "2024-11-08"); err != nil {
+				return fmt.Errorf("failed to insert summary: %w", err)
 			}
 
 			if err := stream.SendAndClose(&pb.PullFlightResponse{
@@ -106,8 +104,8 @@ func (s *server) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 		transaction++
 		summarizer.AddFlight(flight.Destination)
 
-		slog.Debug("Processed flight info",
-			"flight no", flight.Flight,
+		slog.Debug("Processing flight sent by client",
+			"flight", flight.Flight,
 			"origin", flight.Origin,
 			"destination", flight.Destination,
 		)
