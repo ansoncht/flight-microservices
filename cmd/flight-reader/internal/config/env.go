@@ -17,14 +17,14 @@ type HTTPClientConfig struct {
 	Timeout int64 `env:"FLIGHT_READER_HTTP_TIMEOUT"` // Timeout for reading HTTP headers in seconds
 }
 
-// FlightFetcherConfig represents the configuration for flight fetcher.
+// FlightFetcherConfig represents the configuration for the flight fetcher.
 type FlightFetcherConfig struct {
 	URL  string `env:"FLIGHT_READER_FLIGHT_URL"`  // Base URL for the flight fetcher
 	User string `env:"FLIGHT_READER_FLIGHT_USER"` // Username for accessing the API
 	Pass string `env:"FLIGHT_READER_FLIGHT_PASS"` // Password for accessing the API
 }
 
-// RouteFetcherConfig represents the configuration for route fetcher.
+// RouteFetcherConfig represents the configuration for the route fetcher.
 type RouteFetcherConfig struct {
 	URL string `env:"FLIGHT_READER_ROUTE_URL"` // Base URL for the route fetcher
 }

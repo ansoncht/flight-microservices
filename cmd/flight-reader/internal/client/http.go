@@ -9,7 +9,7 @@ import (
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 )
 
-func NewHTTPClient() (*http.Client, error) {
+func NewHTTP() (*http.Client, error) {
 	slog.Info("Creating HTTP client for the service")
 
 	cfg, err := config.LoadHTTPClientConfig()
