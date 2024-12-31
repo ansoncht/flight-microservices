@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,13 +30,13 @@ func main() {
 	}
 
 	// Create a gRPC and HTTP clients
-	grpcClient, err := client.NewGRPCClient()
+	grpcClient, err := client.NewGRPC()
 	if err != nil {
 		slog.Error("Failed to create gRPC client", "error", err)
 		return
 	}
 
-	httpClient, err := client.NewHTTPClient()
+	httpClient, err := client.NewHTTP()
 	if err != nil {
 		slog.Error("Failed to create HTTP client", "error", err)
 		return
@@ -73,7 +72,7 @@ func main() {
 	// Perform a safe shutdown of the server and clients
 	if err := safeShutDown(ctx, grpcClient, httpClient, httpServer); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
-		log.Panicln(err)
+		return
 	}
 
 	slog.Info("Flight Reader service has fully stopped")
@@ -93,6 +92,7 @@ func initializeFetchers(httpClient *http.Client) ([]fetcher.Fetcher, error) {
 	return []fetcher.Fetcher{flightFetcher, routeFetcher}, nil
 }
 
+// startBackgroundJobs starts the HTTP server and scheduler concurrently.
 func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP, scheduler *scheduler.Scheduler) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)

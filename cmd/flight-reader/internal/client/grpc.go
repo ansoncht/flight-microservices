@@ -19,7 +19,7 @@ type GrpcClient struct {
 	stream grpc.ClientStreamingClient[pb.PullFlightRequest, pb.PullFlightResponse]
 }
 
-func NewGRPCClient() (*GrpcClient, error) {
+func NewGRPC() (*GrpcClient, error) {
 	slog.Info("Creating gRPC client for the service")
 
 	cfg, err := config.LoadGrpcClientConfig()
@@ -35,6 +35,7 @@ func NewGRPCClient() (*GrpcClient, error) {
 	return &GrpcClient{
 		client: pb.NewSummarizerClient(conn),
 		conn:   conn,
+		stream: nil,
 	}, nil
 }
 

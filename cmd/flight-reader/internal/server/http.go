@@ -13,12 +13,14 @@ import (
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
 )
 
+// HTTP struct represents the HTTP server and its dependencies.
 type HTTP struct {
-	server     *http.Server
-	grpcClient *client.GrpcClient
-	fetchers   []fetcher.Fetcher
+	server     *http.Server       // HTTP server for incoming request
+	grpcClient *client.GrpcClient // gRPC client for communication
+	fetchers   []fetcher.Fetcher  // List of fetchers for processing flights
 }
 
+// NewHTTP creates a new HTTP server instance.
 func NewHTTP(
 	grpcClient *client.GrpcClient,
 	fetchers []fetcher.Fetcher,
@@ -30,7 +32,7 @@ func NewHTTP(
 		fetchers:   fetchers,
 	}
 
-	// register endpoints
+	// Register endpoints for the server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/fetch", h.handler())
 
@@ -39,6 +41,7 @@ func NewHTTP(
 		return nil, fmt.Errorf("failed to load http server config: %w", err)
 	}
 
+	// Validate the port number
 	if cfg.Port == "" {
 		return nil, fmt.Errorf("empty port number")
 	}
@@ -59,6 +62,7 @@ func NewHTTP(
 	return h, nil
 }
 
+// ServeHTTP starts the HTTP server and handles incoming requests.
 func (h *HTTP) ServeHTTP(ctx context.Context) error {
 	slog.Info("Starting HTTP server", "port", h.server.Addr)
 
@@ -81,6 +85,7 @@ func (h *HTTP) ServeHTTP(ctx context.Context) error {
 	}
 }
 
+// Close gracefully shuts down the HTTP server.
 func (h *HTTP) Close(ctx context.Context) error {
 	if err := h.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("failed to shutdown: %w", err)
@@ -89,6 +94,7 @@ func (h *HTTP) Close(ctx context.Context) error {
 	return nil
 }
 
+// handler returns an HTTP handler function for fetching flights.
 func (h *HTTP) handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Endpoint initiates manual flights fetching")
@@ -98,6 +104,7 @@ func (h *HTTP) handler() http.HandlerFunc {
 			return
 		}
 
+		// Process flights using the fetchers
 		if err := fetcher.ProcessFlights(r.Context(), h.grpcClient, h.fetchers, "VHHH"); err != nil {
 			slog.Error("Failed to process flight", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
