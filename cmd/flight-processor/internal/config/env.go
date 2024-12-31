@@ -6,21 +6,20 @@ import (
 	"github.com/caarlos0/env"
 )
 
-// GRPCServerConfig represents gRPC server configurations.
-type GRPCServerConfig struct {
-	PORT int `env:"SERVER_GRPC_PORT"`
+// GrpcServerConfig represents the configuration for the gRPC server.
+type GrpcServerConfig struct {
+	Port int `env:"FLIGHT_PROCESSOR_GRPC_PORT"`
 }
 
-// MongoDBConfig represents Mongo DB configurations.
-type MongoDBConfig struct {
-	URI        string `env:"MONGO_DB_URI"`
-	DB         string `env:"MONGO_DB_NAME"`
-	COLLECTION string `env:"MONGO_DB_COLLECTION"`
+// MongoClientConfig represents the configuration for the Mongo client.
+type MongoClientConfig struct {
+	URI string `env:"FLIGHT_PROCESSOR_MONGO_URI"`
+	DB  string `env:"FLIGHT_PROCESSOR_MONGO_DB"`
 }
 
-// MakeGRPCServerConfig parses environment variables into a GRPCServerConfig struct.
-func MakeGRPCServerConfig() (*GRPCServerConfig, error) {
-	var cfg GRPCServerConfig
+// LoadGrpcServerConfig parses environment variables into a GrpcServerConfig struct.
+func LoadGrpcServerConfig() (*GrpcServerConfig, error) {
+	var cfg GrpcServerConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for gRPC server config: %w", err)
 	}
@@ -28,9 +27,9 @@ func MakeGRPCServerConfig() (*GRPCServerConfig, error) {
 	return &cfg, nil
 }
 
-// MakeMongoDBConfig parses environment variables into a MongoDBConfig struct.
-func MakeMongoDBConfig() (*MongoDBConfig, error) {
-	var cfg MongoDBConfig
+// LoadMongoClientConfig parses environment variables into a MongoClientConfig struct.
+func LoadMongoClientConfig() (*MongoClientConfig, error) {
+	var cfg MongoClientConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for mongo db config: %w", err)
 	}

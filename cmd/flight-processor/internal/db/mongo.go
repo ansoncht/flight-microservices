@@ -8,86 +8,98 @@ import (
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/model"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 const format = "2006-01-02"
 
-type MongoDB struct {
-	opts   *options.ClientOptions
-	client *mongo.Client
+// HTTP struct represents the Mongo client and its dependencies.
+type Mongo struct {
+	opts   *options.ClientOptions // options for Mongo connetion
+	client *mongo.Client          // client communicating with the Mongo DB
 }
 
-func NewMongoDB() (*MongoDB, error) {
-	slog.Info("Creating MongoDB connection for the service")
+// NewMongo creates a new Mongo client instance.
+func NewMongo() (*Mongo, error) {
+	slog.Info("Creating Mongo client for the service")
 
-	cfg, err := config.MakeMongoDBConfig()
+	cfg, err := config.LoadMongoClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get mongo db config: %w", err)
+		return nil, fmt.Errorf("failed to load mongo client config: %w", err)
 	}
 
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(cfg.URI).SetServerAPIOptions(serverAPI)
+	// Apply the URI from the configuration to the client options
+	opts := options.Client().ApplyURI(cfg.URI)
 
-	return &MongoDB{
+	return &Mongo{
 		opts:   opts,
 		client: nil,
 	}, nil
 }
 
-func (m *MongoDB) Connect(ctx context.Context) error {
-	slog.Info("Starting MongoDB client connection")
+// Connect establishes a connection to the MongoDB server.
+func (m *Mongo) Connect(ctx context.Context) error {
+	slog.Info("Starting Mongo client connection")
 
-	var err error
-
-	m.client, err = mongo.Connect(ctx, m.opts)
+	client, err := mongo.Connect(ctx, m.opts)
 	if err != nil {
-		return fmt.Errorf("failed to connect to mongo db: %w", err)
+		return fmt.Errorf("failed to connect to mongo: %w", err)
 	}
 
-	var result bson.M
+	m.client = client
 
-	if err := m.client.Database("admin").RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Decode(&result); err != nil {
-		return fmt.Errorf("failed to ping mongo db: %w", err)
+	// Ping the primary server to verify the connection
+	if err := m.client.Ping(ctx, readpref.Primary()); err != nil {
+		return fmt.Errorf("failed to ping mongo: %w", err)
 	}
 
 	return nil
 }
 
-func (m *MongoDB) Disconnect(ctx context.Context) error {
-	if m.client == nil {
-		slog.Info("No active Mongo DB connection")
-
-		return nil
-	}
-
+// Disconnect closes the connection to the MongoDB server.
+func (m *Mongo) Disconnect(ctx context.Context) error {
 	if err := m.client.Disconnect(ctx); err != nil {
-		return fmt.Errorf("failed to disconnect from mongo db: %w", err)
+		return fmt.Errorf("failed to disconnect from mongo: %w", err)
 	}
+
+	m.client = nil
 
 	return nil
 }
 
-func (m *MongoDB) InsertSummary(ctx context.Context, summary model.FlightSummary, date string) error {
-	cfg, err := config.MakeMongoDBConfig()
+// InsertSummary stores a flight summary for a specific date in the MongoDB collection.
+func (m *Mongo) InsertSummary(ctx context.Context, data map[string]int, date string) error {
+	cfg, err := config.LoadMongoClientConfig()
 	if err != nil {
-		return fmt.Errorf("failed to get mongo db config: %w", err)
+		return fmt.Errorf("failed to load mongo client config: %w", err)
 	}
 
-	dt, _ := time.Parse(format, date)
-	summary.Date = primitive.NewDateTimeFromTime(dt)
+	// Parse the provided date string into a time.Time object
+	dt, err := time.Parse(format, date)
+	if err != nil {
+		return fmt.Errorf("failed to parse date for transaction: %w", err)
+	}
 
-	if _, err := m.client.Database(cfg.DB).Collection(cfg.COLLECTION).InsertOne(ctx, summary); err != nil {
+	// Set the object to be inserted
+	summary := &model.FlightSummary{
+		Date:    primitive.NewDateTimeFromTime(dt),
+		Summary: data,
+	}
+
+	collection := m.client.Database(cfg.DB).Collection("dailySummaries")
+
+	// Attempt to insert the summary into the collection
+	if _, err := collection.InsertOne(ctx, summary); err != nil {
+		// Check for duplicate key error and log a warning
 		if mongo.IsDuplicateKeyError(err) {
 			slog.Warn("Skipping insertion with the same date")
-
 			return nil
 		}
 
-		return fmt.Errorf("failed to store daily summary in mongo db: %w", err)
+		return fmt.Errorf("failed to store daily summary in mongo: %w", err)
 	}
 
 	slog.Info("Stored flight summary", "date", date, "summary", summary.Summary)
