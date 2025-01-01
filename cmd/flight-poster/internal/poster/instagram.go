@@ -1,4 +1,4 @@
-package social
+package poster
 
 import "log/slog"
 
