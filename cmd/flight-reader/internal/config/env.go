@@ -43,17 +43,17 @@ type SchedulerConfig struct {
 func LoadHTTPServerConfig() (*HTTPServerConfig, error) {
 	var cfg HTTPServerConfig
 	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
+		return nil, fmt.Errorf("failed to get env for HTTP server config: %w", err)
 	}
 
 	return &cfg, nil
 }
 
-// LoadHTTPClientConfig parses environment variables into a HTTPServerConfig struct.
+// LoadHTTPClientConfig parses environment variables into a HTTPClientConfig struct.
 func LoadHTTPClientConfig() (*HTTPClientConfig, error) {
 	var cfg HTTPClientConfig
 	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for http server config: %w", err)
+		return nil, fmt.Errorf("failed to get env for HTTP client config: %w", err)
 	}
 
 	return &cfg, nil
