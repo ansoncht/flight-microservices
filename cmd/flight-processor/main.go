@@ -56,7 +56,7 @@ func main() {
 }
 
 // startBackgroundJobs starts the gRPC server and Mongo client concurrently.
-func startBackgroundJobs(ctx context.Context, grpcServer *server.GRPCServer, mongoDB *db.Mongo) error {
+func startBackgroundJobs(ctx context.Context, grpcServer *server.GrpcServer, mongoDB *db.Mongo) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -81,7 +81,7 @@ func startBackgroundJobs(ctx context.Context, grpcServer *server.GRPCServer, mon
 }
 
 // safeShutDown shut down clients and server gracefully.
-func safeShutDown(ctx context.Context, grpcServer *server.GRPCServer, mongoDB *db.Mongo) error {
+func safeShutDown(ctx context.Context, grpcServer *server.GrpcServer, mongoDB *db.Mongo) error {
 	grpcServer.Close()
 
 	if err := mongoDB.Disconnect(ctx); err != nil {

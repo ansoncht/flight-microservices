@@ -8,7 +8,7 @@ import (
 
 // GrpcServerConfig represents the configuration for the gRPC server.
 type GrpcServerConfig struct {
-	Port int `env:"FLIGHT_PROCESSOR_GRPC_PORT"`
+	Port string `env:"FLIGHT_PROCESSOR_GRPC_PORT"`
 }
 
 // MongoClientConfig represents the configuration for the Mongo client.
