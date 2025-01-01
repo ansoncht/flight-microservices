@@ -38,7 +38,7 @@ func NewHTTP(
 
 	cfg, err := config.LoadHTTPServerConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load http server config: %w", err)
+		return nil, fmt.Errorf("failed to load HTTP server config: %w", err)
 	}
 
 	// Validate the port number
@@ -72,7 +72,7 @@ func (h *HTTP) ServeHTTP(ctx context.Context) error {
 	go func() {
 		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Failed to start HTTP server", "error", err)
-			c <- fmt.Errorf("failed to start http server: %w", err)
+			c <- fmt.Errorf("failed to start HTTP server: %w", err)
 		}
 	}()
 

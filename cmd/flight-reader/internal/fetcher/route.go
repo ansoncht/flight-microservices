@@ -42,7 +42,7 @@ func (r *RouteFetcher) Fetch(ctx context.Context, param ...string) (interface{},
 		return nil, fmt.Errorf("failed to parse url: %w", err)
 	}
 
-	// Add path segmenta
+	// Add path segments
 	endpoint = endpoint.JoinPath("v0", "callsign", param[0])
 
 	// Create a HTTP GET request

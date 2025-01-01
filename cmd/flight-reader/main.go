@@ -29,7 +29,7 @@ func main() {
 		return
 	}
 
-	// Create a gRPC and HTTP clients
+	// Create gRPC and HTTP clients
 	grpcClient, err := client.NewGRPC()
 	if err != nil {
 		slog.Error("Failed to create gRPC client", "error", err)

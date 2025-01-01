@@ -14,7 +14,7 @@ func NewHTTP() (*http.Client, error) {
 
 	cfg, err := config.LoadHTTPClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load http client config: %w", err)
+		return nil, fmt.Errorf("failed to load HTTP client config: %w", err)
 	}
 
 	return &http.Client{
