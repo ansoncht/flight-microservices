@@ -7,24 +7,41 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-poster/server"
+	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/client"
+	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/poster"
+	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/server"
 	logger "github.com/ansoncht/flight-microservices/pkg/log"
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	// create context to listen to os signals
+	// Create a context that listens for OS interrupt signals (e.g., Ctrl+C)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// make app-wide logger
-	err := logger.MakeLogger()
+	// Initialize the application-wide logger
+	err := logger.NewLogger()
 	if err != nil {
-		slog.Error("Failed to create custom logger", "error", err)
+		slog.Error("Failed to initialize custom logger", "error", err)
 		return
 	}
 
-	grpcServer, err := server.NewGRPCServer()
+	// Create HTTP clients
+	httpClient, err := client.NewHTTP()
+	if err != nil {
+		slog.Error("Failed to create HTTP client", "error", err)
+		return
+	}
+
+	// Create posters for different social media
+	threads, err := poster.NewThreadsClient(ctx, httpClient)
+	if err != nil {
+		slog.Error("Failed to create Threads poster", "error", err)
+		return
+	}
+
+	// Create a gRPC server
+	grpcServer, err := server.NewGRPC(threads)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return
