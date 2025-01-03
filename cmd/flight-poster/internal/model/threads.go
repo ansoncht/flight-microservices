@@ -4,3 +4,8 @@ package model
 type ThreadsUserResponse struct {
 	ID string `json:"id"` // User ID for the Threads account
 }
+
+// ThreadsPostCreationResponse represents the structure of post data returned by the Threads API.
+type ThreadsPostCreationResponse struct {
+	ID string `json:"id"` // Container ID for the Threads post
+}
