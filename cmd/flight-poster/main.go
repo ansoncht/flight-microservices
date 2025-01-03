@@ -40,8 +40,16 @@ func main() {
 		return
 	}
 
+	twitter, err := poster.NewTwitterClient()
+	if err != nil {
+		slog.Error("Failed to create Twitter poster", "error", err)
+		return
+	}
+
+	posters := []poster.Poster{threads, twitter}
+
 	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(threads)
+	grpcServer, err := server.NewGRPC(posters)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return

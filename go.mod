@@ -25,6 +25,7 @@ require (
 )
 
 require (
+	github.com/michimani/gotwi v0.16.1
 	go.mongodb.org/mongo-driver v1.17.1
 	google.golang.org/grpc v1.68.0
 )

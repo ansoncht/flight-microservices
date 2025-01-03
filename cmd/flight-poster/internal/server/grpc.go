@@ -17,12 +17,13 @@ import (
 // GrpcServer represents the gRPC server structure.
 type GrpcServer struct {
 	pb.UnimplementedPosterServer
-	server *grpc.Server // gRPC server instance
-	lis    net.Listener // Network listener for incoming connections
+	server  *grpc.Server    // gRPC server instance
+	lis     net.Listener    // Network listener for incoming connections
+	posters []poster.Poster // Posters for social media
 }
 
 // NewGRPC creates a new gRPC server instance.
-func NewGRPC(poster.Poster) (*GrpcServer, error) {
+func NewGRPC(posters []poster.Poster) (*GrpcServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
 	cfg, err := config.LoadGrpcServerConfig()
@@ -47,8 +48,9 @@ func NewGRPC(poster.Poster) (*GrpcServer, error) {
 
 	s := grpc.NewServer()
 	grpcServer := &GrpcServer{
-		server: s,
-		lis:    lis,
+		server:  s,
+		lis:     lis,
+		posters: posters,
 	}
 	pb.RegisterPosterServer(s, grpcServer)
 

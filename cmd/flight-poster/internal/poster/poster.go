@@ -6,7 +6,6 @@ import (
 )
 
 type Poster interface {
-	CreatePost(ctx context.Context, content string, media []string) (string, error)
 	PublishPost(ctx context.Context, postID string) (bool, error)
 }
 
