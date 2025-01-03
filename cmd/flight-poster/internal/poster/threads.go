@@ -25,7 +25,7 @@ func NewThreadsClient(ctx context.Context, httpClient *http.Client) (*ThreadsCli
 
 	cfg, err := config.LoadThreadsClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load mongo client config: %w", err)
+		return nil, fmt.Errorf("failed to load Threads client config: %w", err)
 	}
 
 	// Assumes initial token expires after 60 days
@@ -101,10 +101,11 @@ func (t *ThreadsClient) CreatePost(ctx context.Context, content string, media []
 		return "", fmt.Errorf("failed to parse container: %w", err)
 	}
 
-	return content, nil
+	return post.ID, nil
 }
-func (t *ThreadsClient) PublishPost(ctx context.Context, postID string) (bool, error) {
-	if postID == "" {
+func (t *ThreadsClient) PublishPost(ctx context.Context, content string) (bool, error) {
+	postID, err := t.CreatePost(ctx, content, nil)
+	if err != nil || postID == "" {
 		return false, fmt.Errorf("failed to post Threads post: post id is empty")
 	}
 

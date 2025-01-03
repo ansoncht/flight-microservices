@@ -17,6 +17,12 @@ type ThreadsClientConfig struct {
 	Token string `env:"FLIGHT_POSTER_THREADS_TOKEN"`
 }
 
+// TwitterClientConfig represents Twitter client configurations.
+type TwitterClientConfig struct {
+	Key    string `env:"FLIGHT_POSTER_TWITTER_API_KEY"`
+	Secret string `env:"FLIGHT_POSTER_TWITTER_API_KEY_SECRET"`
+}
+
 // HTTPClientConfig represents the configuration for the HTTP client.
 type HTTPClientConfig struct {
 	Timeout int64 `env:"FLIGHT_POSTER_HTTP_TIMEOUT"` // Timeout for reading HTTP headers in seconds
@@ -37,6 +43,16 @@ func LoadThreadsClientConfig() (*ThreadsClientConfig, error) {
 	var cfg ThreadsClientConfig
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to get env for Threads client config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// LoadTwitterClientConfig parses environment variables into a TwitterClientConfig struct.
+func LoadTwitterClientConfig() (*TwitterClientConfig, error) {
+	var cfg TwitterClientConfig
+	if err := env.Parse(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to get env for Twitter client config: %w", err)
 	}
 
 	return &cfg, nil
