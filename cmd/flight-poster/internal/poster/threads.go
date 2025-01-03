@@ -7,15 +7,16 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/model"
 )
 
 type ThreadsClient struct {
-	Token      string
-	User       string
-	BaseURL    string
+	token      token
+	user       string
+	baseURL    string
 	httpClient *http.Client
 }
 
@@ -27,15 +28,16 @@ func NewThreadsClient(ctx context.Context, httpClient *http.Client) (*ThreadsCli
 		return nil, fmt.Errorf("failed to load mongo client config: %w", err)
 	}
 
-	client := &ThreadsClient{
-		BaseURL:    cfg.URL,
-		Token:      cfg.Token,
-		httpClient: httpClient,
+	// Assumes initial token expires after 60 days
+	token := token{
+		accessToken: cfg.Token,
+		expiration:  time.Now().Add(60 * 24 * time.Hour),
 	}
 
-	err = client.refreshToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get / refresh Threads user token: %w", err)
+	client := &ThreadsClient{
+		baseURL:    cfg.URL,
+		token:      token,
+		httpClient: httpClient,
 	}
 
 	user, err := client.getUserID(ctx)
@@ -43,32 +45,117 @@ func NewThreadsClient(ctx context.Context, httpClient *http.Client) (*ThreadsCli
 		return nil, fmt.Errorf("failed to get Threads user id: %w", err)
 	}
 
-	client.User = user
+	client.user = user
 
 	return client, nil
 }
 
-func (t *ThreadsClient) CreatePost(content string, media []string) (string, error) {
+func (t *ThreadsClient) CreatePost(ctx context.Context, content string, media []string) (string, error) {
 	if content == "" {
-		return "", fmt.Errorf("failed to create thread: content is empty")
+		return "", fmt.Errorf("failed to create Threads post: content is empty")
 	}
 
 	if len(media) == 0 {
-		slog.Warn("Thread contains no media")
+		slog.Warn("Threads post contains no media")
+	}
+
+	if t.needRefreshToken() {
+		if err := t.refreshToken(ctx); err != nil {
+			return "", fmt.Errorf("failed to refresh Threads user token: %w", err)
+		}
+	}
+
+	// Parse the base URL
+	endpoint, err := url.Parse(t.baseURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse url: %w", err)
+	}
+
+	// Add path segments
+	endpoint = endpoint.JoinPath(t.user, "threads")
+
+	// Add and set query parameters
+	query := endpoint.Query()
+	query.Add("text", content)
+	query.Add("access_token", t.token.accessToken)
+	endpoint.RawQuery = query.Encode()
+
+	// Create a HTTP POST request
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request for initializing Threads post: %w", err)
+	}
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Threads post container: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var post model.ThreadsPostCreationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&post); err != nil {
+		return "", fmt.Errorf("failed to parse container: %w", err)
 	}
 
 	return content, nil
 }
-func (t *ThreadsClient) PublishPost(postID string) (bool, error) {
+func (t *ThreadsClient) PublishPost(ctx context.Context, postID string) (bool, error) {
 	if postID == "" {
-		return false, fmt.Errorf("failed to post thread: post id is empty")
+		return false, fmt.Errorf("failed to post Threads post: post id is empty")
 	}
+
+	if t.needRefreshToken() {
+		if err := t.refreshToken(ctx); err != nil {
+			return false, fmt.Errorf("failed to refresh Threads user token: %w", err)
+		}
+	}
+
+	// Parse the base URL
+	endpoint, err := url.Parse(t.baseURL)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse url: %w", err)
+	}
+
+	// Add path segments
+	endpoint = endpoint.JoinPath(t.user, "threads_publish")
+
+	// Add and set query parameters
+	query := endpoint.Query()
+	query.Add("creation_id", postID)
+	query.Add("access_token", t.token.accessToken)
+	endpoint.RawQuery = query.Encode()
+
+	// Create a HTTP POST request
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create request for posting Threads post : %w", err)
+	}
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to post Threads post: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var post model.ThreadsPostCreationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&post); err != nil {
+		return false, fmt.Errorf("failed to parse container: %w", err)
+	}
+
 	return true, nil
 }
 
 func (t *ThreadsClient) getUserID(ctx context.Context) (string, error) {
 	// Parse the base URL
-	endpoint, err := url.Parse(t.BaseURL)
+	endpoint, err := url.Parse(t.baseURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse url: %w", err)
 	}
@@ -78,7 +165,8 @@ func (t *ThreadsClient) getUserID(ctx context.Context) (string, error) {
 
 	// Add and set query parameters
 	query := endpoint.Query()
-	query.Add("access_token", t.Token)
+	query.Add("access_token", t.token.accessToken)
+	endpoint.RawQuery = query.Encode()
 
 	// Create a HTTP GET request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
@@ -106,7 +194,7 @@ func (t *ThreadsClient) getUserID(ctx context.Context) (string, error) {
 
 func (t *ThreadsClient) refreshToken(ctx context.Context) error {
 	// Parse the base URL
-	endpoint, err := url.Parse(t.BaseURL)
+	endpoint, err := url.Parse(t.baseURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse url: %w", err)
 	}
@@ -117,7 +205,7 @@ func (t *ThreadsClient) refreshToken(ctx context.Context) error {
 	// Add and set query parameters
 	query := endpoint.Query()
 	query.Add("grant_type", "th_refresh_token")
-	query.Add("access_token", t.Token)
+	query.Add("access_token", t.token.accessToken)
 	endpoint.RawQuery = query.Encode()
 
 	// Create a HTTP GET request
@@ -136,5 +224,12 @@ func (t *ThreadsClient) refreshToken(ctx context.Context) error {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	t.token.expiration = time.Now().Add(60 * 24 * time.Hour)
+
 	return nil
+}
+
+func (t *ThreadsClient) needRefreshToken() bool {
+	// If the token's expiration time is within 7 days from now, it's time to refresh
+	return time.Now().After(t.token.expiration.Add(-7 * 24 * time.Hour))
 }
