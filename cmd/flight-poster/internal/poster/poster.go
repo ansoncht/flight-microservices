@@ -6,7 +6,7 @@ import (
 )
 
 type Poster interface {
-	PublishPost(ctx context.Context, postID string) (bool, error)
+	PublishPost(ctx context.Context, content string) (bool, error)
 }
 
 type token struct {

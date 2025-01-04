@@ -11,6 +11,7 @@ import (
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/poster"
 	pb "github.com/ansoncht/flight-microservices/proto/src/poster"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -52,7 +53,9 @@ func NewGRPC(posters []poster.Poster) (*GrpcServer, error) {
 		lis:     lis,
 		posters: posters,
 	}
+
 	pb.RegisterPosterServer(s, grpcServer)
+	reflection.Register(s)
 
 	return grpcServer, nil
 }
@@ -85,11 +88,25 @@ func (g *GrpcServer) Close() {
 	g.server.GracefulStop()
 }
 
-func (g *GrpcServer) SendSummary(_ context.Context, req *pb.SendSummaryRequest) (*emptypb.Empty, error) {
+func (g *GrpcServer) SendSummary(ctx context.Context, req *pb.SendSummaryRequest) (*emptypb.Empty, error) {
 	slog.Info("Receiving flight summary from Flight Processor")
 
-	if req == nil {
-		return nil, fmt.Errorf("failed to response: req is empty")
+	// Create a message for social media
+	message := fmt.Sprintf("✈️ Flight Summary for %s:\n", req.Date)
+
+	// Iterate over the flight statistics and append to the message
+	for _, flightStat := range req.FlightStats {
+		message += fmt.Sprintf("🌍 Destination: %s - Frequency: %d flights\n", flightStat.Destination, flightStat.Frequency)
+	}
+
+	// Log the message (or you can send it to a social media API)
+	slog.Info("Posting to social media")
+
+	for _, poster := range g.posters {
+		_, err := poster.PublishPost(ctx, message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to post: %w", err)
+		}
 	}
 
 	return &emptypb.Empty{}, nil

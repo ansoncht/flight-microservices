@@ -50,63 +50,10 @@ func NewThreadsClient(ctx context.Context, httpClient *http.Client) (*ThreadsCli
 	return client, nil
 }
 
-func (t *ThreadsClient) CreatePost(ctx context.Context, content string, media []string) (string, error) {
-	if content == "" {
-		return "", fmt.Errorf("failed to create Threads post: content is empty")
-	}
-
-	if len(media) == 0 {
-		slog.Warn("Threads post contains no media")
-	}
-
-	if t.needRefreshToken() {
-		if err := t.refreshToken(ctx); err != nil {
-			return "", fmt.Errorf("failed to refresh Threads user token: %w", err)
-		}
-	}
-
-	// Parse the base URL
-	endpoint, err := url.Parse(t.baseURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse url: %w", err)
-	}
-
-	// Add path segments
-	endpoint = endpoint.JoinPath(t.user, "threads")
-
-	// Add and set query parameters
-	query := endpoint.Query()
-	query.Add("text", content)
-	query.Add("access_token", t.token.accessToken)
-	endpoint.RawQuery = query.Encode()
-
-	// Create a HTTP POST request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request for initializing Threads post: %w", err)
-	}
-
-	resp, err := t.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Threads post container: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var post model.ThreadsPostCreationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&post); err != nil {
-		return "", fmt.Errorf("failed to parse container: %w", err)
-	}
-
-	return post.ID, nil
-}
 func (t *ThreadsClient) PublishPost(ctx context.Context, content string) (bool, error) {
-	postID, err := t.CreatePost(ctx, content, nil)
-	if err != nil || postID == "" {
-		return false, fmt.Errorf("failed to post Threads post: post id is empty")
+	postID, err := t.createPost(ctx, content, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to post Threads post: %w", err)
 	}
 
 	if t.needRefreshToken() {
@@ -152,6 +99,61 @@ func (t *ThreadsClient) PublishPost(ctx context.Context, content string) (bool, 
 	}
 
 	return true, nil
+}
+
+func (t *ThreadsClient) createPost(ctx context.Context, content string, media []string) (string, error) {
+	if content == "" {
+		return "", fmt.Errorf("failed to create Threads post: content is empty")
+	}
+
+	if len(media) == 0 {
+		slog.Warn("Threads post contains no media")
+	}
+
+	if t.needRefreshToken() {
+		if err := t.refreshToken(ctx); err != nil {
+			return "", fmt.Errorf("failed to refresh Threads user token: %w", err)
+		}
+	}
+
+	// Parse the base URL
+	endpoint, err := url.Parse(t.baseURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse url: %w", err)
+	}
+
+	// Add path segments
+	endpoint = endpoint.JoinPath(t.user, "threads")
+
+	// Add and set query parameters
+	query := endpoint.Query()
+	query.Add("text", content)
+	query.Add("media_type", "TEXT")
+	query.Add("access_token", t.token.accessToken)
+	endpoint.RawQuery = query.Encode()
+
+	// Create a HTTP POST request
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request for initializing Threads post: %w", err)
+	}
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Threads post container: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var post model.ThreadsPostCreationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&post); err != nil {
+		return "", fmt.Errorf("failed to parse container: %w", err)
+	}
+
+	return post.ID, nil
 }
 
 func (t *ThreadsClient) getUserID(ctx context.Context) (string, error) {
