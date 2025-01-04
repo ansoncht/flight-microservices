@@ -19,8 +19,8 @@ type ThreadsClientConfig struct {
 
 // TwitterClientConfig represents Twitter client configurations.
 type TwitterClientConfig struct {
-	Key    string `env:"FLIGHT_POSTER_TWITTER_API_KEY"`
-	Secret string `env:"FLIGHT_POSTER_TWITTER_API_KEY_SECRET"`
+	Key    string `env:"FLIGHT_POSTER_TWITTER_ACCESS_TOKEN"`
+	Secret string `env:"FLIGHT_POSTER_TWITTER_ACCESS_TOKEN_SECRET"`
 }
 
 // HTTPClientConfig represents the configuration for the HTTP client.
