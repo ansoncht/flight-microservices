@@ -14,6 +14,7 @@ import (
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/summarizer"
 	pb "github.com/ansoncht/flight-microservices/proto/src/summarizer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // GrpcServer represents the gRPC server structure.
@@ -56,6 +57,7 @@ func NewGRPC(mongoDB *db.Mongo) (*GrpcServer, error) {
 	}
 
 	pb.RegisterSummarizerServer(s, grpcServer)
+	reflection.Register(s)
 
 	return grpcServer, nil
 }
