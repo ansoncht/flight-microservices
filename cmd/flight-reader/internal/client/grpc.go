@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/model"
@@ -81,14 +80,12 @@ func (g *GrpcClient) SendFlight(flight *model.Flight) error {
 }
 
 func (g *GrpcClient) CloseStream() error {
-	resp, err := g.stream.CloseAndRecv()
+	_, err := g.stream.CloseAndRecv()
 	if err != nil {
 		return fmt.Errorf("failed to close gRPC stream: %w", err)
 	}
 
 	g.stream = nil
-
-	slog.Info("Received response from server", "total", strconv.Itoa(int(resp.Transaction)))
 
 	return nil
 }
