@@ -11,8 +11,7 @@ message PullFlightRequest {
     string flight = 1;
     string origin = 2;
     string destination = 3;
+    string date = 4;
 }
 
-message PullFlightResponse {
-    int64 transaction = 1;
-}
+message PullFlightResponse {}
