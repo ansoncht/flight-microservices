@@ -12,7 +12,6 @@ import (
 	pb "github.com/ansoncht/flight-microservices/proto/src/poster"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // GrpcServer represents the gRPC server structure.
@@ -88,19 +87,16 @@ func (g *GrpcServer) Close() {
 	g.server.GracefulStop()
 }
 
-func (g *GrpcServer) SendSummary(ctx context.Context, req *pb.SendSummaryRequest) (*emptypb.Empty, error) {
-	slog.Info("Receiving flight summary from Flight Processor")
+func (g *GrpcServer) SendSummary(ctx context.Context, req *pb.SendSummaryRequest) (*pb.SendSummaryResponse, error) {
+	slog.Info("Receiving flight summary from Flight Processor, posting to social media")
 
 	// Create a message for social media
 	message := fmt.Sprintf("✈️ Flight Summary for %s:\n", req.Date)
 
-	// Iterate over the flight statistics and append to the message
+	// Iterate over the flight statistics to append all destinations
 	for _, flightStat := range req.FlightStats {
-		message += fmt.Sprintf("🌍 Destination: %s - Frequency: %d flights\n", flightStat.Destination, flightStat.Frequency)
+		message += fmt.Sprintf("🌍 %s: %d\t\t", flightStat.Destination, flightStat.Frequency)
 	}
-
-	// Log the message (or you can send it to a social media API)
-	slog.Info("Posting to social media")
 
 	for _, poster := range g.posters {
 		_, err := poster.PublishPost(ctx, message)
@@ -109,5 +105,5 @@ func (g *GrpcServer) SendSummary(ctx context.Context, req *pb.SendSummaryRequest
 		}
 	}
 
-	return &emptypb.Empty{}, nil
+	return &pb.SendSummaryResponse{}, nil
 }
