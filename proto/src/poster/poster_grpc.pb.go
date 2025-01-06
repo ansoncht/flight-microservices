@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -27,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PosterClient interface {
-	SendSummary(ctx context.Context, in *SendSummaryRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SendSummary(ctx context.Context, in *SendSummaryRequest, opts ...grpc.CallOption) (*SendSummaryResponse, error)
 }
 
 type posterClient struct {
@@ -38,9 +37,9 @@ func NewPosterClient(cc grpc.ClientConnInterface) PosterClient {
 	return &posterClient{cc}
 }
 
-func (c *posterClient) SendSummary(ctx context.Context, in *SendSummaryRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *posterClient) SendSummary(ctx context.Context, in *SendSummaryRequest, opts ...grpc.CallOption) (*SendSummaryResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(SendSummaryResponse)
 	err := c.cc.Invoke(ctx, Poster_SendSummary_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -52,7 +51,7 @@ func (c *posterClient) SendSummary(ctx context.Context, in *SendSummaryRequest, 
 // All implementations must embed UnimplementedPosterServer
 // for forward compatibility.
 type PosterServer interface {
-	SendSummary(context.Context, *SendSummaryRequest) (*emptypb.Empty, error)
+	SendSummary(context.Context, *SendSummaryRequest) (*SendSummaryResponse, error)
 	mustEmbedUnimplementedPosterServer()
 }
 
@@ -63,7 +62,7 @@ type PosterServer interface {
 // pointer dereference when methods are called.
 type UnimplementedPosterServer struct{}
 
-func (UnimplementedPosterServer) SendSummary(context.Context, *SendSummaryRequest) (*emptypb.Empty, error) {
+func (UnimplementedPosterServer) SendSummary(context.Context, *SendSummaryRequest) (*SendSummaryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendSummary not implemented")
 }
 func (UnimplementedPosterServer) mustEmbedUnimplementedPosterServer() {}

@@ -3,10 +3,8 @@ package flight;
 
 option go_package = "github.com/ansoncht/flight-microservices/proto/poster";
 
-import "google/protobuf/empty.proto";
-
 service Poster {
-  rpc SendSummary (SendSummaryRequest) returns (google.protobuf.Empty) {}
+  rpc SendSummary (SendSummaryRequest) returns (SendSummaryResponse) {}
 }
 
 message FlightStat {
@@ -16,5 +14,8 @@ message FlightStat {
 
 message SendSummaryRequest {
   string date = 1;
-  repeated FlightStat flight_stats = 2;
+  string origin = 2;
+  repeated FlightStat flight_stats = 3;
 }
+
+message SendSummaryResponse {}
