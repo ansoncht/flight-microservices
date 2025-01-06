@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/server"
 	logger "github.com/ansoncht/flight-microservices/pkg/log"
@@ -33,8 +34,15 @@ func main() {
 		return
 	}
 
+	// Create a gRPC client
+	grpcClient, err := client.NewGRPC()
+	if err != nil {
+		slog.Error("Failed to create gRPC client", "error", err)
+		return
+	}
+
 	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(mongoDB)
+	grpcServer, err := server.NewGRPC(mongoDB, grpcClient)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return
