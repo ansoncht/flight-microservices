@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net"
 	"strconv"
+	"time"
 
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/summarizer"
@@ -20,13 +22,14 @@ import (
 // GrpcServer represents the gRPC server structure.
 type GrpcServer struct {
 	pb.UnimplementedSummarizerServer
-	server  *grpc.Server // gRPC server instance
-	lis     net.Listener // Network listener for incoming connections
-	mongoDB *db.Mongo    // MongoDB instance for database operations
+	server     *grpc.Server       // gRPC server instance
+	lis        net.Listener       // Network listener for incoming connections
+	mongoDB    *db.Mongo          // MongoDB instance for database operations
+	grpcClient *client.GrpcClient // gRPC client to send summary
 }
 
 // NewGRPC creates a new gRPC server instance.
-func NewGRPC(mongoDB *db.Mongo) (*GrpcServer, error) {
+func NewGRPC(mongoDB *db.Mongo, grpcClient *client.GrpcClient) (*GrpcServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
 	cfg, err := config.LoadGrpcServerConfig()
@@ -51,9 +54,10 @@ func NewGRPC(mongoDB *db.Mongo) (*GrpcServer, error) {
 
 	s := grpc.NewServer()
 	grpcServer := &GrpcServer{
-		server:  s,
-		lis:     lis,
-		mongoDB: mongoDB,
+		server:     s,
+		lis:        lis,
+		mongoDB:    mongoDB,
+		grpcClient: grpcClient,
 	}
 
 	pb.RegisterSummarizerServer(s, grpcServer)
@@ -102,13 +106,19 @@ func (g *GrpcServer) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 		if errors.Is(err, io.EOF) {
 			slog.Info("Sent response to client", "total", transaction)
 
-			if err := g.mongoDB.InsertSummary(stream.Context(), summarizer.GetFlightCounts(), "2024-11-08"); err != nil {
+			ctx := stream.Context()
+			flightData := summarizer.GetFlightCounts()
+			date := time.Now().Format("2006-01-02")
+
+			if err := g.mongoDB.InsertSummary(ctx, flightData, date); err != nil {
 				return fmt.Errorf("failed to insert summary: %w", err)
 			}
 
-			if err := stream.SendAndClose(&pb.PullFlightResponse{
-				Transaction: transaction,
-			}); err != nil {
+			if err := g.grpcClient.SendSummary(ctx, flightData, date); err != nil {
+				return fmt.Errorf("failed to send request to server: %w", err)
+			}
+
+			if err := stream.SendAndClose(&pb.PullFlightResponse{}); err != nil {
 				return fmt.Errorf("failed to send response to client: %w", err)
 			}
 
