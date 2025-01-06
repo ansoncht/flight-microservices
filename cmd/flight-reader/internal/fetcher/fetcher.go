@@ -41,16 +41,18 @@ func ProcessFlights(
 	}
 
 	// Use errgroup with shared context to process routes concurrently
-	g, ctx := errgroup.WithContext(ctx)
+	g, _ := errgroup.WithContext(ctx)
 
 	// For each flight entry, process its route concurrently
 	for _, entry := range flightEntries {
-		g.Go(func() error {
-			if err := fetchRoute(ctx, entry, fetchers[1], client); err != nil {
-				return err
-			}
-			return nil
-		})
+		if entry.Origin != entry.Destination {
+			g.Go(func() error {
+				if err := fetchRoute(ctx, entry, fetchers[1], client); err != nil {
+					return err
+				}
+				return nil
+			})
+		}
 	}
 
 	// Wait for all goroutines to finish
@@ -118,6 +120,10 @@ func fetchRoute(
 	route, ok := routeResp.(*model.RouteResponse)
 	if !ok {
 		return fmt.Errorf("fetched data is not of type model.RouteResponse")
+	}
+
+	if route.Response.FlightRoute.Origin.IATACode == route.Response.FlightRoute.Destination.IATACode {
+		return nil
 	}
 
 	// Create a Flight object from the route data
