@@ -12,12 +12,12 @@ import (
 func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
 	tests := []struct {
 		name  string
-		cfg   *logger.Config
+		cfg   logger.Config
 		level slog.Level
 	}{
 		{
 			name: "DEBUG level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "debug",
 			},
@@ -25,7 +25,7 @@ func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
 		},
 		{
 			name: "DEBUG level with TEXT format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  false,
 				Level: "debug",
 			},
@@ -49,12 +49,12 @@ func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
 func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 	tests := []struct {
 		name  string
-		cfg   *logger.Config
+		cfg   logger.Config
 		level slog.Level
 	}{
 		{
 			name: "DEBUG level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "debug",
 			},
@@ -62,7 +62,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 		},
 		{
 			name: "INFO level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "info",
 			},
@@ -70,7 +70,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 		},
 		{
 			name: "WARN level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "warn",
 			},
@@ -78,7 +78,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 		},
 		{
 			name: "ERROR level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "error",
 			},
@@ -102,19 +102,19 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 func TestNewLogger_InvalidLevel_ShouldError(t *testing.T) {
 	tests := []struct {
 		name  string
-		cfg   *logger.Config
+		cfg   logger.Config
 		level slog.Level
 	}{
 		{
 			name: "DEBUG level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "",
 			},
 		},
 		{
 			name: "INFO level with JSON format",
-			cfg: &logger.Config{
+			cfg: logger.Config{
 				JSON:  true,
 				Level: "mylevel",
 			},
@@ -126,7 +126,7 @@ func TestNewLogger_InvalidLevel_ShouldError(t *testing.T) {
 			actual, err := logger.NewLogger(tt.cfg)
 
 			require.ErrorContains(t, err, "invalid log level")
-			require.Nil(t, actual)
+			require.Equal(t, slog.Logger{}, actual)
 		})
 	}
 }

@@ -15,7 +15,7 @@ type Config struct {
 }
 
 // NewLogger creates a default logger based on the provided configuration.
-func NewLogger(cfg *Config) (*slog.Logger, error) {
+func NewLogger(cfg Config) (slog.Logger, error) {
 	slog.Debug("Initializing logger for the service")
 
 	// Set log level based on the configuration.
@@ -32,7 +32,7 @@ func NewLogger(cfg *Config) (*slog.Logger, error) {
 	case "error":
 		level = slog.LevelError
 	default:
-		return nil, fmt.Errorf("invalid log level: %s", cfg.Level)
+		return slog.Logger{}, fmt.Errorf("invalid log level: %s", cfg.Level)
 	}
 
 	// Set source logging options.
@@ -48,5 +48,5 @@ func NewLogger(cfg *Config) (*slog.Logger, error) {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	}
 
-	return slog.New(handler), nil
+	return *slog.New(handler), nil
 }
