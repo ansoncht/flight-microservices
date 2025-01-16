@@ -9,9 +9,9 @@ import (
 // Config holds configuration settings for the logger.
 type Config struct {
 	// JSON specifies whether the logger output is in JSON format.
-	JSON bool `mapstructure:"address"`
+	JSON bool `mapstructure:"json"`
 	// Level specifies the logging level (e.g., "debug", "info", "error").
-	Level string `mapstructure:"address"`
+	Level string `mapstructure:"level"`
 }
 
 // NewLogger creates a default logger based on the provided configuration.
