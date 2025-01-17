@@ -16,53 +16,62 @@ import (
 
 const format = "2006-01-02"
 
-// HTTP struct represents the Mongo client and its dependencies.
+// Mongo holds the Mongo client and its configuration settings.
 type Mongo struct {
-	opts   *options.ClientOptions // options for Mongo connetion
-	client *mongo.Client          // client communicating with the Mongo DB
+	// opts specifies the client options for connecting to MongoDB.
+	opts *options.ClientOptions
+	// client is the MongoDB client used to communicate with the database.
+	client *mongo.Client
+	// db specifies the name of the MongoDB database to use.
+	db string
 }
 
-// NewMongo creates a new Mongo client instance.
-func NewMongo() (*Mongo, error) {
+// NewMongo creates a new MongoDB client based on the provided configuration.
+func NewMongo(cfg config.MongoClientConfig) (*Mongo, error) {
 	slog.Info("Creating Mongo client for the service")
 
-	cfg, err := config.LoadMongoClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load mongo client config: %w", err)
+	if cfg.URI == "" {
+		return nil, fmt.Errorf("MongoDB connection URI is empty")
+	}
+	if cfg.DB == "" {
+		return nil, fmt.Errorf("MongoDB database name is empty")
 	}
 
-	// Apply the URI from the configuration to the client options
+	// Apply the URI from the configuration to the client options.
 	opts := options.Client().ApplyURI(cfg.URI)
 
 	return &Mongo{
 		opts:   opts,
 		client: nil,
+		db:     cfg.DB,
 	}, nil
 }
 
-// Connect establishes a connection to the MongoDB server.
+// Connect establishes a connection to the MongoDB server and verifies it.
 func (m *Mongo) Connect(ctx context.Context) error {
-	slog.Info("Starting Mongo client connection")
+	slog.Info("Starting MongoDB client connection")
 
 	client, err := mongo.Connect(ctx, m.opts)
 	if err != nil {
-		return fmt.Errorf("failed to connect to mongo: %w", err)
+		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	m.client = client
 
-	// Ping the primary server to verify the connection
+	// Ping the primary server to verify the connection.
 	if err := m.client.Ping(ctx, readpref.Primary()); err != nil {
-		return fmt.Errorf("failed to ping mongo: %w", err)
+		return fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
+
+	slog.Info("Successfully connected to MongoDB")
 
 	return nil
 }
 
-// Disconnect closes the connection to the MongoDB server.
+// Disconnect closes the MongoDB client connection.
 func (m *Mongo) Disconnect(ctx context.Context) error {
 	if err := m.client.Disconnect(ctx); err != nil {
-		return fmt.Errorf("failed to disconnect from mongo: %w", err)
+		return fmt.Errorf("failed to disconnect from MongoDB: %w", err)
 	}
 
 	m.client = nil
@@ -70,39 +79,43 @@ func (m *Mongo) Disconnect(ctx context.Context) error {
 	return nil
 }
 
-// InsertSummary stores a flight summary for a specific date in the MongoDB collection.
+// InsertSummary adds a flight summary for a specific date to the MongoDB collection.
 func (m *Mongo) InsertSummary(ctx context.Context, data map[string]int, date string) error {
-	cfg, err := config.LoadMongoClientConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load mongo client config: %w", err)
-	}
-
-	// Parse the provided date string into a time.Time object
-	dt, err := time.Parse(format, date)
+	dt, err := parseDate(date)
 	if err != nil {
 		return fmt.Errorf("failed to parse date for transaction: %w", err)
 	}
 
-	// Set the object to be inserted
+	// Prepare the summary object to be inserted.
 	summary := &model.FlightSummary{
 		Date:    primitive.NewDateTimeFromTime(dt),
 		Summary: data,
 	}
 
-	collection := m.client.Database(cfg.DB).Collection("dailySummaries")
+	collection := m.client.Database(m.db).Collection("dailySummaries")
 
-	// Attempt to insert the summary into the collection
+	// Attempt to insert the summary into the collection.
 	if _, err := collection.InsertOne(ctx, summary); err != nil {
-		// Check for duplicate key error and log a warning
+		// Log a warning if a duplicate key error occurs.
 		if mongo.IsDuplicateKeyError(err) {
 			slog.Warn("Skipping insertion with the same date")
 			return nil
 		}
 
-		return fmt.Errorf("failed to store daily summary in mongo: %w", err)
+		return fmt.Errorf("failed to store daily summary in MongoDB: %w", err)
 	}
 
 	slog.Info("Stored flight summary", "date", date, "summary", summary.Summary)
 
 	return nil
+}
+
+// parseDate parses the date string into a time.Time object.
+func parseDate(date string) (time.Time, error) {
+	dt, err := time.Parse(format, date)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse date: %w", err)
+	}
+
+	return dt, nil
 }

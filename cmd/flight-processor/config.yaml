@@ -1,0 +1,10 @@
+grpc-server:
+  port: 9098
+grpc-client:
+  address: localhost:9097
+mongodb:
+  uri: ''
+  db: flightDB
+logger:
+  json: true
+  level: 'info'

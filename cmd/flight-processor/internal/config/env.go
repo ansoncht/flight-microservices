@@ -2,51 +2,56 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/caarlos0/env"
+	"github.com/ansoncht/flight-microservices/pkg/logger"
+	"github.com/spf13/viper"
 )
 
-// GrpcServerConfig represents the configuration for the gRPC server.
+// FlightProcessorConfig holds all configuration related to flight processor.
+type FlightProcessorConfig struct {
+	GrpcServerConfig  GrpcServerConfig  `mapstructure:"grpc-server"`
+	GrpcClientConfig  GrpcClientConfig  `mapstructure:"grpc-client"`
+	MongoClientConfig MongoClientConfig `mapstructure:"mongodb"`
+	LoggerConfig      logger.Config     `mapstructure:"logger"`
+}
+
+// GrpcServerConfig holds configuration settings for the gRPC server.
 type GrpcServerConfig struct {
-	Port string `env:"FLIGHT_PROCESSOR_GRPC_PORT"`
+	// Port specifies the port where the gRPC server listens for connections.
+	Port string `mapstructure:"port"`
 }
 
-// GrpcClientConfig represents the configuration for the gRPC client.
+// GrpcClientConfig holds configuration settings for the gRPC client.
 type GrpcClientConfig struct {
-	Address string `env:"FLIGHT_PROCESSOR_GRPC_ADDRESS"` // Address of the gRPC server which gRPC client connects
+	// Address specifies the address of the Poster gRPC server.
+	Address string `mapstructure:"address"`
 }
 
-// MongoClientConfig represents the configuration for the Mongo client.
+// MongoClientConfig holds configuration settings for the MongoDB client.
 type MongoClientConfig struct {
-	URI string `env:"FLIGHT_PROCESSOR_MONGO_URI"`
-	DB  string `env:"FLIGHT_PROCESSOR_MONGO_DB"`
+	// URI specifies the connection URI for the MongoDB server.
+	URI string `mapstructure:"uri"`
+	// DB specifies the name of the MongoDB database to use.
+	DB string `mapstructure:"db"`
 }
 
-// LoadGrpcServerConfig parses environment variables into a GrpcServerConfig struct.
-func LoadGrpcServerConfig() (*GrpcServerConfig, error) {
-	var cfg GrpcServerConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for gRPC server config: %w", err)
+// LoadConfig loads configuration from environment variables and a YAML file.
+func LoadConfig() (*FlightProcessorConfig, error) {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("FLIGHT_PROCESSOR")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
-	return &cfg, nil
-}
-
-// LoadGrpcClientConfig parses environment variables into a GRPCClientConfig struct.
-func LoadGrpcClientConfig() (*GrpcClientConfig, error) {
-	var cfg GrpcClientConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for gRPC client config: %w", err)
-	}
-
-	return &cfg, nil
-}
-
-// LoadMongoClientConfig parses environment variables into a MongoClientConfig struct.
-func LoadMongoClientConfig() (*MongoClientConfig, error) {
-	var cfg MongoClientConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for mongo db config: %w", err)
+	var cfg FlightProcessorConfig
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	return &cfg, nil
