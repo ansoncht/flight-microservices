@@ -17,13 +17,8 @@ type GrpcClient struct {
 	conn   *grpc.ClientConn
 }
 
-func NewGRPC() (*GrpcClient, error) {
+func NewGRPC(cfg config.GrpcClientConfig) (*GrpcClient, error) {
 	slog.Info("Creating gRPC client for the service")
-
-	cfg, err := config.LoadGrpcClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load gRPC client config: %w", err)
-	}
 
 	conn, err := grpc.NewClient(cfg.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

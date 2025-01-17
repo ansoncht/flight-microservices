@@ -9,9 +9,10 @@ import (
 	"syscall"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/client"
+	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
 	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/server"
-	logger "github.com/ansoncht/flight-microservices/pkg/log"
+	"github.com/ansoncht/flight-microservices/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,29 +21,39 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Initialize the application-wide logger
-	err := logger.NewLogger()
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		slog.Error("Failed to initialize custom logger", "error", err)
+		slog.Error("Failed to load config", "error", err)
 		return
 	}
 
+	// Create a customized logger
+	logger, err := logger.NewLogger(cfg.LoggerConfig)
+	if err != nil {
+		slog.Warn(
+			"Failed to create custom logger, using default logger instead",
+			"error", err,
+		)
+	}
+
+	slog.SetDefault(&logger)
+
 	// Create a Mongo client
-	mongoDB, err := db.NewMongo()
+	mongoDB, err := db.NewMongo(cfg.MongoClientConfig)
 	if err != nil {
 		slog.Error("Failed to create Mongo client", "error", err)
 		return
 	}
 
 	// Create a gRPC client
-	grpcClient, err := client.NewGRPC()
+	grpcClient, err := client.NewGRPC(cfg.GrpcClientConfig)
 	if err != nil {
 		slog.Error("Failed to create gRPC client", "error", err)
 		return
 	}
 
 	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(mongoDB, grpcClient)
+	grpcServer, err := server.NewGRPC(cfg.GrpcServerConfig, *mongoDB, *grpcClient)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return
@@ -90,11 +101,12 @@ func startBackgroundJobs(ctx context.Context, grpcServer *server.GrpcServer, mon
 
 // safeShutDown shut down clients and server gracefully.
 func safeShutDown(ctx context.Context, grpcServer *server.GrpcServer, mongoDB *db.Mongo) error {
+	slog.Info("Shutting down gRPC server and MongoDB client")
+
 	grpcServer.Close()
 
 	if err := mongoDB.Disconnect(ctx); err != nil {
-		slog.Error("Failed to shutdown Mongo client", "error", err)
-		return fmt.Errorf("failed to shutdown mongo client: %w", err)
+		return fmt.Errorf("failed to shutdown mongodb client: %w", err)
 	}
 
 	return nil
