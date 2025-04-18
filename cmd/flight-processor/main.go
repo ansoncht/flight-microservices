@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(cfg.GrpcServerConfig, *mongoDB, *grpcClient)
+	grpcServer, err := server.NewGRPC(cfg.GrpcServerConfig, mongoDB, grpcClient)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return

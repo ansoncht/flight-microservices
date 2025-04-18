@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// FlightProcessorConfig holds all configuration related to flight processor.
+// FlightProcessorConfig holds all configurations related to flight processor.
 type FlightProcessorConfig struct {
 	GrpcServerConfig  GrpcServerConfig  `mapstructure:"grpc-server"`
 	GrpcClientConfig  GrpcClientConfig  `mapstructure:"grpc-client"`
@@ -46,7 +46,7 @@ func LoadConfig() (*FlightProcessorConfig, error) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg FlightProcessorConfig
