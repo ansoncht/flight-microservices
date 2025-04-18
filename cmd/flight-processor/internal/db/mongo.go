@@ -16,6 +16,12 @@ import (
 
 const format = "2006-01-02"
 
+type Database interface {
+	Connect(ctx context.Context) error
+	Disconnect(ctx context.Context) error
+	InsertSummary(ctx context.Context, data map[string]int, date string) error
+}
+
 // Mongo holds the Mongo client and its configuration settings.
 type Mongo struct {
 	// opts specifies the client options for connecting to MongoDB.

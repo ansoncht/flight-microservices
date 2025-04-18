@@ -19,44 +19,44 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// GrpcServer represents the gRPC server structure.
+// GrpcServer holds the gRPC server and its configuration settings.
 type GrpcServer struct {
+	// UnimplementedSummarizerServer is the default implementation
+	// for the gRPC Summarizer server interface.
 	pb.UnimplementedSummarizerServer
-	server     *grpc.Server       // gRPC server instance
-	lis        net.Listener       // Network listener for incoming connections
-	mongoDB    *db.Mongo          // MongoDB instance for database operations
-	grpcClient *client.GrpcClient // gRPC client to send summary
+	// server is the instance of the gRPC server handling incoming requests.
+	server *grpc.Server
+	// lis is the network listener for accepting incoming gRPC connections.
+	lis net.Listener
+	// mongoDB is the MongoDB instance used for database operations.
+	mongoDB *db.Mongo
+	// grpcClient is the gRPC client used to send summaries to another service.
+	grpcClient *client.GrpcClient
 }
 
-// NewGRPC creates a new gRPC server instance.
-func NewGRPC(cfg config.GrpcServerConfig, mongoDB db.Mongo, grpcClient client.GrpcClient) (*GrpcServer, error) {
+// NewGRPC creates a new gRPC server based on the provided configuration..
+func NewGRPC(cfg config.GrpcServerConfig, mongoDB *db.Mongo, grpcClient *client.GrpcClient) (*GrpcServer, error) {
 	slog.Info("Creating gRPC server for the service")
 
-	// Validate the port number
-	if cfg.Port == "" {
-		return nil, fmt.Errorf("empty port number")
-	}
-
-	port, _ := strconv.Atoi(cfg.Port)
-	if port < 1 {
-		return nil, fmt.Errorf("port number must be greater than 1")
+	port, err := strconv.Atoi(cfg.Port)
+	if err != nil || port < 1 {
+		return nil, fmt.Errorf("invalid port number: %s", cfg.Port)
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen: %w", err)
+		return nil, fmt.Errorf("failed to create listener: %w", err)
 	}
 
-	s := grpc.NewServer()
 	grpcServer := &GrpcServer{
-		server:     s,
+		server:     grpc.NewServer(),
 		lis:        lis,
-		mongoDB:    &mongoDB,
-		grpcClient: &grpcClient,
+		mongoDB:    mongoDB,
+		grpcClient: grpcClient,
 	}
 
-	pb.RegisterSummarizerServer(s, grpcServer)
-	reflection.Register(s)
+	pb.RegisterSummarizerServer(grpcServer.server, grpcServer)
+	reflection.Register(grpcServer.server)
 
 	return grpcServer, nil
 }
@@ -70,7 +70,6 @@ func (g *GrpcServer) ServeGRPC(ctx context.Context) error {
 	// Start the server in a goroutine
 	go func() {
 		if err := g.server.Serve(g.lis); err != nil {
-			slog.Error("Failed to start gRPC server", "error", err)
 			c <- fmt.Errorf("failed to start gRPC server: %w", err)
 		}
 	}()
@@ -84,7 +83,7 @@ func (g *GrpcServer) ServeGRPC(ctx context.Context) error {
 	}
 }
 
-// Close gracefully shuts down the gRPC server.
+// Close shuts down the gRPC server gracefully.
 func (g *GrpcServer) Close() {
 	g.server.GracefulStop()
 }
@@ -106,24 +105,20 @@ func (g *GrpcServer) PullFlight(stream pb.Summarizer_PullFlightServer) error {
 			date := time.Now().Format("2006-01-02")
 
 			if err := g.mongoDB.InsertSummary(ctx, flightData, date); err != nil {
-				slog.Error("Failed to insert summary into MongoDB", "error", err)
-				return fmt.Errorf("failed to insert summary: %w", err)
+				return fmt.Errorf("failed to insert summary into MongoDB: %w", err)
 			}
 
 			if err := g.grpcClient.SendSummary(ctx, flightData, date); err != nil {
-				slog.Error("Failed to send summary to Flight Poster", "error", err)
-				return fmt.Errorf("failed to send request to server: %w", err)
+				return fmt.Errorf("failed to send summary to flight poster: %w", err)
 			}
 
 			if err := stream.SendAndClose(&pb.PullFlightResponse{}); err != nil {
-				slog.Error("Failed to send response to Flight Reader", "error", err)
-				return fmt.Errorf("failed to send response to client: %w", err)
+				return fmt.Errorf("failed to send response to flight reader: %w", err)
 			}
 
 			return nil
 		}
 		if err != nil {
-			slog.Error("Failed to pull flight data", "error", err)
 			return fmt.Errorf("failed to pull flight data: %w", err)
 		}
 
