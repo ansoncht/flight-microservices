@@ -10,10 +10,11 @@ import (
 	"syscall"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/scheduler"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
-	logger "github.com/ansoncht/flight-microservices/pkg/log"
+	"github.com/ansoncht/flight-microservices/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,42 +23,43 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Initialize the application-wide logger
-	err := logger.NewLogger()
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		slog.Error("Failed to initialize custom logger", "error", err)
+		slog.Error("Failed to load config", "error", err)
 		return
 	}
+
+	// Create a customized logger
+	logger, err := logger.NewLogger(cfg.LoggerConfig)
+	if err != nil {
+		slog.Warn("Failed to create custom logger, using default logger instead", "error", err)
+	}
+
+	slog.SetDefault(&logger)
 
 	// Create gRPC and HTTP clients
-	grpcClient, err := client.NewGRPC()
+	grpcClient, httpClient, err := initializeClients(cfg.GrpcClientConfig, cfg.HTTPClientConfig)
 	if err != nil {
-		slog.Error("Failed to create gRPC client", "error", err)
-		return
-	}
-
-	httpClient, err := client.NewHTTP()
-	if err != nil {
-		slog.Error("Failed to create HTTP client", "error", err)
+		slog.Error("Failed to create clients", "error", err)
 		return
 	}
 
 	// Create fetchers for scheduler and http server
-	fetchers, err := initializeFetchers(httpClient)
+	fetchers, err := initializeFetchers(cfg.FlightFetcherConfig, cfg.RouteFetcherConfig, httpClient)
 	if err != nil {
 		slog.Error("Failed to create fetchers", "error", err)
 		return
 	}
 
 	// Create a HTTP server with the grpc client and fetchers
-	httpServer, err := server.NewHTTP(grpcClient, fetchers)
+	httpServer, err := server.NewHTTP(cfg.HTTPServerConfig, grpcClient, fetchers)
 	if err != nil {
 		slog.Error("Failed to create HTTP server", "error", err)
 		return
 	}
 
 	// Create a scheduler with the grpc client and fetchers
-	scheduler, err := scheduler.NewScheduler(grpcClient, fetchers)
+	scheduler, err := scheduler.NewScheduler(cfg.SchedulerConfig, grpcClient, fetchers)
 	if err != nil {
 		slog.Error("Failed to create scheduler", "error", err)
 		return
@@ -78,13 +80,36 @@ func main() {
 	slog.Info("Flight Reader service has fully stopped")
 }
 
-func initializeFetchers(httpClient *http.Client) ([]fetcher.Fetcher, error) {
-	flightFetcher, err := fetcher.NewFlightFetcher(httpClient)
+func initializeClients(
+	grpcCfg config.GrpcClientConfig,
+	httpCfg config.HTTPClientConfig,
+) (*client.GrpcClient, *http.Client, error) {
+	grpcClient, err := client.NewGRPC(grpcCfg)
+	if err != nil {
+		slog.Error("Failed to create gRPC client", "error", err)
+		return nil, nil, fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+
+	httpClient, err := client.NewHTTP(httpCfg)
+	if err != nil {
+		slog.Error("Failed to create HTTP client", "error", err)
+		return nil, nil, fmt.Errorf("failed to create HTTP client: %w", err)
+	}
+
+	return grpcClient, httpClient, nil
+}
+
+func initializeFetchers(
+	flightCfg config.FlightFetcherConfig,
+	routeCfg config.RouteFetcherConfig,
+	httpClient *http.Client,
+) ([]fetcher.Fetcher, error) {
+	flightFetcher, err := fetcher.NewFlightFetcher(flightCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create flight fetcher: %w", err)
 	}
 
-	routeFetcher, err := fetcher.NewRouteFetcher(httpClient)
+	routeFetcher, err := fetcher.NewRouteFetcher(routeCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create route fetcher: %w", err)
 	}
