@@ -22,6 +22,7 @@ type HTTP struct {
 
 // NewHTTP creates a new HTTP server instance.
 func NewHTTP(
+	cfg config.HTTPServerConfig,
 	grpcClient *client.GrpcClient,
 	fetchers []fetcher.Fetcher,
 ) (*HTTP, error) {
@@ -35,11 +36,6 @@ func NewHTTP(
 	// Register endpoints for the server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/fetch", h.handler())
-
-	cfg, err := config.LoadHTTPServerConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load HTTP server config: %w", err)
-	}
 
 	// Validate the port number
 	if cfg.Port == "" {

@@ -23,13 +23,8 @@ type FlightFetcher struct {
 }
 
 // NewFlightFetcher creates a new instance of FlightFetcher with the provided BaseFetcher client.
-func NewFlightFetcher(client *http.Client) (*FlightFetcher, error) {
+func NewFlightFetcher(cfg config.FlightFetcherConfig, client *http.Client) (*FlightFetcher, error) {
 	slog.Info("Creating Flight Fetcher for the service")
-
-	cfg, err := config.LoadFlightFetcherConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load flight fetcher config: %w", err)
-	}
 
 	return &FlightFetcher{
 		client:  client,

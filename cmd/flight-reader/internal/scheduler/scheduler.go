@@ -24,15 +24,11 @@ type Scheduler struct {
 }
 
 func NewScheduler(
+	cfg config.SchedulerConfig,
 	grpcClient *client.GrpcClient,
 	fetchers []fetcher.Fetcher,
 ) (*Scheduler, error) {
 	slog.Info("Creating scheduler for the service")
-
-	cfg, err := config.LoadSchedulerConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load scheduler config: %w", err)
-	}
 
 	if cfg.Airports == "" {
 		return nil, fmt.Errorf("empty airports list")

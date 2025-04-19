@@ -21,13 +21,8 @@ type RouteFetcher struct {
 }
 
 // NewRouteFetcher creates a new instance of RouteFetcher with the provided BaseFetcher client.
-func NewRouteFetcher(client *http.Client) (*RouteFetcher, error) {
+func NewRouteFetcher(cfg config.RouteFetcherConfig, client *http.Client) (*RouteFetcher, error) {
 	slog.Info("Creating Route Fetcher for the service")
-
-	cfg, err := config.LoadRouteFetcherConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load route fetcher config: %w", err)
-	}
 
 	return &RouteFetcher{
 		client:  client,
