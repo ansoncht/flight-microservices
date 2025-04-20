@@ -20,13 +20,12 @@ type ThreadsClient struct {
 	httpClient *http.Client
 }
 
-func NewThreadsClient(ctx context.Context, httpClient *http.Client) (*ThreadsClient, error) {
+func NewThreadsClient(
+	ctx context.Context,
+	cfg config.ThreadsClientConfig,
+	httpClient *http.Client,
+) (*ThreadsClient, error) {
 	slog.Info("Creating Threads client for the service")
-
-	cfg, err := config.LoadThreadsClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Threads client config: %w", err)
-	}
 
 	// Assumes initial token expires after 60 days
 	token := token{

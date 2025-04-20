@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/client"
+	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/poster"
 	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/server"
-	logger "github.com/ansoncht/flight-microservices/pkg/log"
+	"github.com/ansoncht/flight-microservices/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -19,37 +22,36 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Initialize the application-wide logger
-	err := logger.NewLogger()
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		slog.Error("Failed to initialize custom logger", "error", err)
+		slog.Error("Failed to load config", "error", err)
 		return
 	}
 
+	// Create a customized logger
+	logger, err := logger.NewLogger(cfg.LoggerConfig)
+	if err != nil {
+		slog.Warn("Failed to create custom logger, using default logger instead", "error", err)
+	}
+
+	slog.SetDefault(&logger)
+
 	// Create HTTP clients
-	httpClient, err := client.NewHTTP()
+	httpClient, err := client.NewHTTP(cfg.HTTPClientConfig)
 	if err != nil {
 		slog.Error("Failed to create HTTP client", "error", err)
 		return
 	}
 
 	// Create posters for different social media
-	threads, err := poster.NewThreadsClient(ctx, httpClient)
+	posters, err := initializePosters(ctx, cfg.ThreadsClientConfig, cfg.TwitterClientConfig, httpClient)
 	if err != nil {
-		slog.Error("Failed to create Threads poster", "error", err)
+		slog.Error("Failed to create posters", "error", err)
 		return
 	}
-
-	twitter, err := poster.NewTwitterClient()
-	if err != nil {
-		slog.Error("Failed to create Twitter poster", "error", err)
-		return
-	}
-
-	posters := []poster.Poster{threads, twitter}
 
 	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(posters)
+	grpcServer, err := server.NewGRPC(cfg.GrpcServerConfig, posters)
 	if err != nil {
 		slog.Error("Failed to create gRPC server", "error", err)
 		return
@@ -71,4 +73,26 @@ func main() {
 	grpcServer.Close()
 
 	slog.Info("Flight Poster service has fully stopped")
+}
+
+func initializePosters(
+	ctx context.Context,
+	threadsCfg config.ThreadsClientConfig,
+	twittercfg config.TwitterClientConfig,
+	httpClient *http.Client,
+) ([]poster.Poster, error) {
+	// Create posters for different social media
+	threads, err := poster.NewThreadsClient(ctx, threadsCfg, httpClient)
+	if err != nil {
+		slog.Error("Failed to create Threads poster", "error", err)
+		return nil, fmt.Errorf("failed to create Threads poster: %w", err)
+	}
+
+	twitter, err := poster.NewTwitterClient(twittercfg)
+	if err != nil {
+		slog.Error("Failed to create Twitter poster", "error", err)
+		return nil, fmt.Errorf("failed to create Twitter poster: %w", err)
+	}
+
+	return []poster.Poster{threads, twitter}, nil
 }
