@@ -3,7 +3,6 @@ module github.com/ansoncht/flight-microservices
 go 1.23.3
 
 require (
-	github.com/caarlos0/env v3.5.0+incompatible
 	golang.org/x/sync v0.9.0
 	google.golang.org/protobuf v1.34.2
 )
@@ -18,6 +17,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
@@ -44,6 +44,7 @@ require (
 
 require (
 	github.com/michimani/gotwi v0.16.1
+	github.com/segmentio/kafka-go v0.4.47
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.1

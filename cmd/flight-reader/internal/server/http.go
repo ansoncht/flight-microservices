@@ -8,29 +8,25 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
 )
 
 // HTTP struct represents the HTTP server and its dependencies.
 type HTTP struct {
-	server     *http.Server       // HTTP server for incoming request
-	grpcClient *client.GrpcClient // gRPC client for communication
-	fetchers   []fetcher.Fetcher  // List of fetchers for processing flights
+	server   *http.Server      // HTTP server for incoming request
+	fetchers []fetcher.Fetcher // List of fetchers for processing flights
 }
 
 // NewHTTP creates a new HTTP server instance.
 func NewHTTP(
 	cfg config.HTTPServerConfig,
-	grpcClient *client.GrpcClient,
 	fetchers []fetcher.Fetcher,
 ) (*HTTP, error) {
 	slog.Info("Creating HTTP server for the service")
 
 	h := &HTTP{
-		grpcClient: grpcClient,
-		fetchers:   fetchers,
+		fetchers: fetchers,
 	}
 
 	// Register endpoints for the server
@@ -101,7 +97,7 @@ func (h *HTTP) handler() http.HandlerFunc {
 		}
 
 		// Process flights using the fetchers
-		if err := fetcher.ProcessFlights(r.Context(), h.grpcClient, h.fetchers, "VHHH"); err != nil {
+		if err := fetcher.ProcessFlights(r.Context(), h.fetchers, "VHHH"); err != nil {
 			slog.Error("Failed to process flight", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
