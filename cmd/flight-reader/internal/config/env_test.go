@@ -4,22 +4,29 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoadConfig_ValidConfigFile_ShouldSucceed(t *testing.T) {
 	t.Run("Valid Config File", func(t *testing.T) {
-		os.Setenv("FLIGHT_PROCESSOR_MONGODB_URI", "mongodb://localhost:27017")
+		os.Setenv("FLIGHT_READER_FLIGHT_FETCHER_URL", "test")
+		os.Setenv("FLIGHT_READER_FLIGHT_FETCHER_USER", "test")
+		os.Setenv("FLIGHT_READER_FLIGHT_FETCHER_PASS", "test")
+		os.Setenv("FLIGHT_READER_ROUTE_FETCHER_URL", "test")
 
 		cfg, err := config.LoadConfig()
 
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
-		require.Equal(t, "9098", cfg.GrpcServerConfig.Port)
-		require.Equal(t, "localhost:9097", cfg.GrpcClientConfig.Address)
-		require.Equal(t, "mongodb://localhost:27017", cfg.MongoClientConfig.URI)
-		require.Equal(t, "flightDB", cfg.MongoClientConfig.DB)
+		require.Equal(t, "9099", cfg.HTTPServerConfig.Port)
+		require.Equal(t, 10, cfg.HTTPServerConfig.Timeout)
+		require.Equal(t, 10, cfg.HTTPClientConfig.Timeout)
+		require.Equal(t, "localhost:9098", cfg.GrpcClientConfig.Address)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.URL)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.User)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.Pass)
+		require.Equal(t, "VHHH", cfg.SchedulerConfig.Airports)
 		require.True(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "info", cfg.LoggerConfig.Level)
 	})
@@ -49,21 +56,21 @@ func TestLoadConfig_MissingFile_ShouldError(t *testing.T) {
 
 func TestLoadConfig_EnvOverride_ShouldSucceed(t *testing.T) {
 	t.Run("Override Config File", func(t *testing.T) {
-		t.Setenv("FLIGHT_PROCESSOR_GRPC_SERVER_PORT", "60051")
-		t.Setenv("FLIGHT_PROCESSOR_GRPC_CLIENT_ADDRESS", "localhost:60052")
-		t.Setenv("FLIGHT_PROCESSOR_MONGODB_URI", "mongodb://localhost:37017")
-		t.Setenv("FLIGHT_PROCESSOR_MONGODB_DB", "test_db")
-		t.Setenv("FLIGHT_PROCESSOR_LOGGER_LEVEL", "debug")
-		t.Setenv("FLIGHT_PROCESSOR_LOGGER_JSON", "false")
+		t.Setenv("FLIGHT_READER_LOGGER_LEVEL", "debug")
+		t.Setenv("FLIGHT_READER_LOGGER_JSON", "false")
 
 		cfg, err := config.LoadConfig()
 
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
-		require.Equal(t, "60051", cfg.GrpcServerConfig.Port)
-		require.Equal(t, "localhost:60052", cfg.GrpcClientConfig.Address)
-		require.Equal(t, "mongodb://localhost:37017", cfg.MongoClientConfig.URI)
-		require.Equal(t, "test_db", cfg.MongoClientConfig.DB)
+		require.Equal(t, "9099", cfg.HTTPServerConfig.Port)
+		require.Equal(t, 10, cfg.HTTPServerConfig.Timeout)
+		require.Equal(t, 10, cfg.HTTPClientConfig.Timeout)
+		require.Equal(t, "localhost:9098", cfg.GrpcClientConfig.Address)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.URL)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.User)
+		require.Equal(t, "test", cfg.FlightFetcherConfig.Pass)
+		require.Equal(t, "VHHH", cfg.SchedulerConfig.Airports)
 		require.False(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "debug", cfg.LoggerConfig.Level)
 	})

@@ -24,13 +24,13 @@ type HTTPServerConfig struct {
 	// Port specifies the port where the HTTP server listens for requests.
 	Port string `mapstructure:"port"`
 	// Timeout specifies the timeout for reading HTTP headers in seconds.
-	Timeout int64 `mapstructure:"timeout"`
+	Timeout int `mapstructure:"timeout"`
 }
 
 // HTTPClientConfig holds configuration settings for the HTTP client.
 type HTTPClientConfig struct {
 	// Timeout specifies the timeout for reading HTTP headers in seconds.
-	Timeout int64 `mapstructure:"timeout"`
+	Timeout int `mapstructure:"timeout"`
 }
 
 // GrpcClientConfig holds configuration settings for the gRPC client.
@@ -65,7 +65,7 @@ type SchedulerConfig struct {
 func LoadConfig() (*FlightReaderConfig, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath("../../")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_READER")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))

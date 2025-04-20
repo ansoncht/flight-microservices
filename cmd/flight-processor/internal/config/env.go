@@ -40,7 +40,7 @@ type MongoClientConfig struct {
 func LoadConfig() (*FlightProcessorConfig, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath("../../")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_PROCESSOR")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))

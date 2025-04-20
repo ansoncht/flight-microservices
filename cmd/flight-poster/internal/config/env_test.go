@@ -4,22 +4,28 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
+	"github.com/ansoncht/flight-microservices/cmd/flight-poster/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoadConfig_ValidConfigFile_ShouldSucceed(t *testing.T) {
 	t.Run("Valid Config File", func(t *testing.T) {
-		os.Setenv("FLIGHT_PROCESSOR_MONGODB_URI", "mongodb://localhost:27017")
+		os.Setenv("GOTWI_API_KEY", "test")
+		os.Setenv("GOTWI_API_KEY_SECRET", "test")
+		os.Setenv("FLIGHT_POSTER_THREADS_ACCESS_TOKEN", "test")
+		os.Setenv("FLIGHT_POSTER_TWITTER_ACCESS_TOKEN_KEY", "test")
+		os.Setenv("FLIGHT_POSTER_TWITTER_ACCESS_TOKEN_SECRET", "test")
 
 		cfg, err := config.LoadConfig()
 
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
-		require.Equal(t, "9098", cfg.GrpcServerConfig.Port)
-		require.Equal(t, "localhost:9097", cfg.GrpcClientConfig.Address)
-		require.Equal(t, "mongodb://localhost:27017", cfg.MongoClientConfig.URI)
-		require.Equal(t, "flightDB", cfg.MongoClientConfig.DB)
+		require.Equal(t, "9097", cfg.GrpcServerConfig.Port)
+		require.Equal(t, 10, cfg.HTTPClientConfig.Timeout)
+		require.Equal(t, "https://graph.threads.net", cfg.ThreadsClientConfig.URL)
+		require.Equal(t, "test", cfg.ThreadsClientConfig.Token)
+		require.Equal(t, "test", cfg.TwitterClientConfig.Key)
+		require.Equal(t, "test", cfg.TwitterClientConfig.Secret)
 		require.True(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "info", cfg.LoggerConfig.Level)
 	})
@@ -49,21 +55,19 @@ func TestLoadConfig_MissingFile_ShouldError(t *testing.T) {
 
 func TestLoadConfig_EnvOverride_ShouldSucceed(t *testing.T) {
 	t.Run("Override Config File", func(t *testing.T) {
-		t.Setenv("FLIGHT_PROCESSOR_GRPC_SERVER_PORT", "60051")
-		t.Setenv("FLIGHT_PROCESSOR_GRPC_CLIENT_ADDRESS", "localhost:60052")
-		t.Setenv("FLIGHT_PROCESSOR_MONGODB_URI", "mongodb://localhost:37017")
-		t.Setenv("FLIGHT_PROCESSOR_MONGODB_DB", "test_db")
-		t.Setenv("FLIGHT_PROCESSOR_LOGGER_LEVEL", "debug")
-		t.Setenv("FLIGHT_PROCESSOR_LOGGER_JSON", "false")
+		t.Setenv("FLIGHT_POSTER_LOGGER_LEVEL", "debug")
+		t.Setenv("FLIGHT_POSTER_LOGGER_JSON", "false")
 
 		cfg, err := config.LoadConfig()
 
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
-		require.Equal(t, "60051", cfg.GrpcServerConfig.Port)
-		require.Equal(t, "localhost:60052", cfg.GrpcClientConfig.Address)
-		require.Equal(t, "mongodb://localhost:37017", cfg.MongoClientConfig.URI)
-		require.Equal(t, "test_db", cfg.MongoClientConfig.DB)
+		require.Equal(t, "9097", cfg.GrpcServerConfig.Port)
+		require.Equal(t, 10, cfg.HTTPClientConfig.Timeout)
+		require.Equal(t, "https://graph.threads.net", cfg.ThreadsClientConfig.URL)
+		require.Equal(t, "test", cfg.ThreadsClientConfig.Token)
+		require.Equal(t, "test", cfg.TwitterClientConfig.Key)
+		require.Equal(t, "test", cfg.TwitterClientConfig.Secret)
 		require.False(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "debug", cfg.LoggerConfig.Level)
 	})
