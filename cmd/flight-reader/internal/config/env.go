@@ -65,6 +65,7 @@ type SchedulerConfig struct {
 func LoadConfig() (*FlightReaderConfig, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
 	viper.AddConfigPath("../../")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_READER")

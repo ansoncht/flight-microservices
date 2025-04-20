@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
 	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/model"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,7 +21,6 @@ type Fetcher interface {
 // to a gRPC client for further processing.
 func ProcessFlights(
 	ctx context.Context,
-	client *client.GrpcClient,
 	fetchers []Fetcher,
 	airport string,
 ) error {
@@ -35,11 +33,6 @@ func ProcessFlights(
 		return err
 	}
 
-	// Start gRPC stream for the current batch of flights
-	if err := client.StartStream(ctx); err != nil {
-		return fmt.Errorf("failed to start gRPC stream: %w", err)
-	}
-
 	// Use errgroup with shared context to process routes concurrently
 	g, _ := errgroup.WithContext(ctx)
 
@@ -47,7 +40,7 @@ func ProcessFlights(
 	for _, entry := range flightEntries {
 		if entry.Origin != entry.Destination {
 			g.Go(func() error {
-				if err := fetchRoute(ctx, entry, fetchers[1], client); err != nil {
+				if err := fetchRoute(ctx, entry, fetchers[1]); err != nil {
 					return err
 				}
 				return nil
@@ -58,11 +51,6 @@ func ProcessFlights(
 	// Wait for all goroutines to finish
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("processing encountered an error: %w", err)
-	}
-
-	// Close gRPC stream to avoid long idle connection
-	if err := client.CloseStream(); err != nil {
-		return fmt.Errorf("failed to close gRPC stream: %w", err)
 	}
 
 	return nil
@@ -103,7 +91,6 @@ func fetchRoute(
 	ctx context.Context,
 	entry *model.FlightResponse,
 	routeFetcher Fetcher,
-	client *client.GrpcClient,
 ) error {
 	// Fetch route data for the flight using the routeFetcher
 	routeResp, err := routeFetcher.Fetch(ctx, strings.TrimSpace(entry.CallSign))
@@ -143,11 +130,6 @@ func fetchRoute(
 		"origin", flight.Origin,
 		"destination", flight.Destination,
 	)
-
-	// Send flight data to the processor via gRPC
-	if err := client.SendFlight(flight); err != nil {
-		return fmt.Errorf("failed to send flight to processor: %w", err)
-	}
 
 	return nil
 }
