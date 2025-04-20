@@ -26,7 +26,7 @@ type GrpcServerConfig struct {
 // HTTPClientConfig holds configuration settings for the HTTP client.
 type HTTPClientConfig struct {
 	// Timeout specifies the timeout for reading HTTP headers in seconds.
-	Timeout int64 `mapstructure:"timeout"`
+	Timeout int `mapstructure:"timeout"`
 }
 
 // ThreadsClientConfig holds configuration settings for the Threads client.
@@ -49,7 +49,7 @@ type TwitterClientConfig struct {
 func LoadConfig() (*FlightPosterConfig, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath("../../")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_POSTER")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
