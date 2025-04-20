@@ -15,13 +15,8 @@ type TwitterClient struct {
 	client *gotwi.Client
 }
 
-func NewTwitterClient() (*TwitterClient, error) {
+func NewTwitterClient(cfg config.TwitterClientConfig) (*TwitterClient, error) {
 	slog.Info("Creating Twitter client for the service")
-
-	cfg, err := config.LoadTwitterClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Twitter client config: %w", err)
-	}
 
 	opts := &gotwi.NewClientInput{
 		AuthenticationMethod: gotwi.AuthenMethodOAuth1UserContext,

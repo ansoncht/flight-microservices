@@ -23,13 +23,8 @@ type GrpcServer struct {
 }
 
 // NewGRPC creates a new gRPC server instance.
-func NewGRPC(posters []poster.Poster) (*GrpcServer, error) {
+func NewGRPC(cfg config.GrpcServerConfig, posters []poster.Poster) (*GrpcServer, error) {
 	slog.Info("Creating gRPC server for the service")
-
-	cfg, err := config.LoadGrpcServerConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load gRPC server config: %w", err)
-	}
 
 	// Validate the port number
 	if cfg.Port == "" {

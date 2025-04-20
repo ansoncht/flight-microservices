@@ -2,67 +2,65 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/caarlos0/env"
+	"github.com/ansoncht/flight-microservices/pkg/logger"
+	"github.com/spf13/viper"
 )
 
-// GrpcServerConfig represents gRPC server configurations.
+// FlightPosterConfig holds all configurations related to flight poster.
+type FlightPosterConfig struct {
+	GrpcServerConfig    GrpcServerConfig    `mapstructure:"grpc-server"`
+	HTTPClientConfig    HTTPClientConfig    `mapstructure:"http-client"`
+	ThreadsClientConfig ThreadsClientConfig `mapstructure:"threads"`
+	TwitterClientConfig TwitterClientConfig `mapstructure:"twitter"`
+	LoggerConfig        logger.Config       `mapstructure:"logger"`
+}
+
+// GrpcServerConfig holds configuration settings for the gRPC server.
 type GrpcServerConfig struct {
-	Port string `env:"FLIGHT_POSTER_GRPC_PORT"`
+	// Port specifies the port where the gRPC server listens for connections.
+	Port string `mapstructure:"port"`
 }
 
-// ThreadsClientConfig represents Threads client configurations.
-type ThreadsClientConfig struct {
-	URL   string `env:"FLIGHT_POSTER_THREADS_URL"`
-	Token string `env:"FLIGHT_POSTER_THREADS_TOKEN"`
-}
-
-// TwitterClientConfig represents Twitter client configurations.
-type TwitterClientConfig struct {
-	Key    string `env:"FLIGHT_POSTER_TWITTER_ACCESS_TOKEN"`
-	Secret string `env:"FLIGHT_POSTER_TWITTER_ACCESS_TOKEN_SECRET"`
-}
-
-// HTTPClientConfig represents the configuration for the HTTP client.
+// HTTPClientConfig holds configuration settings for the HTTP client.
 type HTTPClientConfig struct {
-	Timeout int64 `env:"FLIGHT_POSTER_HTTP_TIMEOUT"` // Timeout for reading HTTP headers in seconds
+	// Timeout specifies the timeout for reading HTTP headers in seconds.
+	Timeout int64 `mapstructure:"timeout"`
 }
 
-// LoadGrpcServerConfig parses environment variables into a GrpcServerConfig struct.
-func LoadGrpcServerConfig() (*GrpcServerConfig, error) {
-	var cfg GrpcServerConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for gRPC server config: %w", err)
+// ThreadsClientConfig holds configuration settings for the Threads client.
+type ThreadsClientConfig struct {
+	// URL specifies the base URL for the Threads API.
+	URL string `mapstructure:"url"`
+	// Token specifies the access token for authentication with the Threads API.
+	Token string `mapstructure:"access-token"`
+}
+
+// TwitterClientConfig holds configuration settings for the Twitter client.
+type TwitterClientConfig struct {
+	// Key specifies the API key for Twitter authentication.
+	Key string `mapstructure:"access-token-key"`
+	// Secret specifies the API secret key for Twitter authentication.
+	Secret string `mapstructure:"access-token-secret"`
+}
+
+// LoadConfig loads configuration from environment variables and a YAML file.
+func LoadConfig() (*FlightPosterConfig, error) {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("FLIGHT_POSTER")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	return &cfg, nil
-}
-
-// LoadThreadsClientConfig parses environment variables into a ThreadsClientConfig struct.
-func LoadThreadsClientConfig() (*ThreadsClientConfig, error) {
-	var cfg ThreadsClientConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for Threads client config: %w", err)
-	}
-
-	return &cfg, nil
-}
-
-// LoadTwitterClientConfig parses environment variables into a TwitterClientConfig struct.
-func LoadTwitterClientConfig() (*TwitterClientConfig, error) {
-	var cfg TwitterClientConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for Twitter client config: %w", err)
-	}
-
-	return &cfg, nil
-}
-
-// LoadHTTPClientConfig parses environment variables into a HTTPClientConfig struct.
-func LoadHTTPClientConfig() (*HTTPClientConfig, error) {
-	var cfg HTTPClientConfig
-	if err := env.Parse(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to get env for HTTP client config: %w", err)
+	var cfg FlightPosterConfig
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	return &cfg, nil
