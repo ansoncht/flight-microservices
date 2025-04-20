@@ -26,6 +26,8 @@ jobs:
               - 'cmd/flight-poster/**'
             pkg:
               - 'pkg/**'
+            internal:
+              - 'internal/**'
 
   build:
     needs: changes
@@ -46,37 +48,41 @@ jobs:
           go-version: '1.23'
 
       - name: golangci-lint
-        if: ${{ matrix.app != 'pkg' }}
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.61
-          working-directory: cmd/${{ matrix.app }}
-          skip-pkg-cache: true
-          skip-build-cache: true
-
-      - name: golangci-lint
-        if: ${{ matrix.app == 'pkg' }}
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.61
-          working-directory: ${{ matrix.app }}
           skip-pkg-cache: true
           skip-build-cache: true
 
       - name: Build
-        if: ${{ matrix.app != 'pkg' }}
+        if: ${{ matrix.app != 'pkg' && matrix.app != 'internal' }}
         run: go build -v ./...
         working-directory: cmd/${{ matrix.app }}
 
+      - name: Build (internal)
+        if: ${{ matrix.app == 'internal' }}
+        run: go build -v ./...
+        working-directory: internal
+
+      - name: Build (pkg)
+        if: ${{ matrix.app == 'pkg' }}
+        run: go build -v ./...
+        working-directory: pkg
+
       - name: Test
-        if: ${{ matrix.app != 'pkg' }}
+        if: ${{ matrix.app != 'pkg' && matrix.app != 'internal' }}
         run: go test -v ./...
         working-directory: cmd/${{ matrix.app }}
 
-      - name: Test
+      - name: Test (internal)
+        if: ${{ matrix.app == 'internal' }}
+        run: go test -v ./...
+        working-directory: internal
+
+      - name: Test (pkg)
         if: ${{ matrix.app == 'pkg' }}
         run: go test -v ./...
-        working-directory: ${{ matrix.app }}
+        working-directory: pkg
 
   approve:
     needs: build

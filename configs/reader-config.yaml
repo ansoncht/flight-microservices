@@ -1,0 +1,17 @@
+http_server:
+  port: 9099
+  timeout: 10
+http_client:
+  timeout: 10
+flight_api_client:
+  url: ''
+  user: ''
+  pass: ''
+route_api_client:
+  url: ''
+kafka_writer:
+  address: ''
+  topic: ''
+logger:
+  json: true
+  level: 'info'

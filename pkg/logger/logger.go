@@ -14,7 +14,7 @@ type Config struct {
 	Level string `mapstructure:"level"`
 }
 
-// NewLogger creates a default logger based on the provided configuration.
+// NewLogger creates a default logger instance based on the provided configuration.
 func NewLogger(cfg Config) (slog.Logger, error) {
 	slog.Debug("Initializing logger for the service")
 

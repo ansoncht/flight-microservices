@@ -9,11 +9,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/client"
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/config"
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/fetcher"
-	"github.com/ansoncht/flight-microservices/cmd/flight-reader/internal/server"
+	readerClient "github.com/ansoncht/flight-microservices/internal/reader/client"
+	"github.com/ansoncht/flight-microservices/internal/reader/config"
+	"github.com/ansoncht/flight-microservices/internal/reader/service"
+
+	"github.com/ansoncht/flight-microservices/pkg/client"
+	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/logger"
+	"github.com/ansoncht/flight-microservices/pkg/server"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -36,34 +39,38 @@ func main() {
 
 	slog.SetDefault(&logger)
 
-	// Create HTTP clients
-	httpClient, err := client.NewHTTP(cfg.HTTPClientConfig)
+	httpClient, err := client.NewHTTPClient(cfg.HTTPClientConfig)
 	if err != nil {
 		slog.Error("Failed to create HTTP client", "error", err)
 		return
 	}
 
-	// Create fetchers for scheduler and http server
-	fetchers, err := initializeFetchers(cfg.FlightFetcherConfig, cfg.RouteFetcherConfig, httpClient)
+	// Create reader service to fetch flight and route data
+	reader, err := initializeReaderService(
+		cfg.FlightAPIClientConfig,
+		cfg.RouteAPIClientConfig,
+		cfg.KafkaWriterConfig,
+		httpClient,
+	)
 	if err != nil {
-		slog.Error("Failed to create fetchers", "error", err)
+		slog.Error("Failed to initialize reader service", "error", err)
 		return
 	}
 
-	// Create a HTTP server with the grpc client and fetchers
-	httpServer, err := server.NewHTTP(cfg.HTTPServerConfig, fetchers)
+	// Create a new HTTP server and handler
+	httpServer, err := initializeHTTPServerWithHandler(cfg.HTTPServerConfig, reader)
 	if err != nil {
-		slog.Error("Failed to create HTTP server", "error", err)
+		slog.Error("Failed to create HTTP server with handler", "error", err)
 		return
 	}
 
-	// Run the server and schedule jobs concurrently
+	// Run the server in background
 	if err := startBackgroundJobs(ctx, httpServer); err != nil {
-		slog.Error("Failed to run background jobs concurrently", "error", err)
+		slog.Error("Failed to start background jobs", "error", err)
 		return
 	}
 
-	// Perform a safe shutdown of the server and clients
+	// Perform a safe shutdown of the server and client
 	if err := safeShutDown(ctx, httpClient, httpServer); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
 		return
@@ -72,22 +79,48 @@ func main() {
 	slog.Info("Flight Reader service has fully stopped")
 }
 
-func initializeFetchers(
-	flightCfg config.FlightFetcherConfig,
-	routeCfg config.RouteFetcherConfig,
+func initializeHTTPServerWithHandler(
+	httpCfg server.HTTPConfig,
+	readerService *service.Reader,
+) (*server.HTTP, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/fetch", readerService.HTTPHandler)
+
+	httpServer, err := server.NewHTTPServer(httpCfg, mux)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP server: %w", err)
+	}
+
+	return httpServer, nil
+}
+
+func initializeReaderService(
+	flightCfg config.FlightAPIClientConfig,
+	routeCfg config.RouteAPIClientConfig,
+	kafkaCfg kafka.WriterConfig,
 	httpClient *http.Client,
-) ([]fetcher.Fetcher, error) {
-	flightFetcher, err := fetcher.NewFlightFetcher(flightCfg, httpClient)
+) (*service.Reader, error) {
+	flightClient, err := readerClient.NewFlightAPIClient(flightCfg, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create flight fetcher: %w", err)
+		return nil, fmt.Errorf("failed to create flight api client: %w", err)
 	}
 
-	routeFetcher, err := fetcher.NewRouteFetcher(routeCfg, httpClient)
+	routeClient, err := readerClient.NewRouteAPIClient(routeCfg, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create route fetcher: %w", err)
+		return nil, fmt.Errorf("failed to create route api client: %w", err)
 	}
 
-	return []fetcher.Fetcher{flightFetcher, routeFetcher}, nil
+	kafkaWriter, err := kafka.NewKafkaWriter(kafkaCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka writer: %w", err)
+	}
+
+	reader, err := service.NewReader(flightClient, routeClient, kafkaWriter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reader service: %w", err)
+	}
+
+	return reader, nil
 }
 
 // startBackgroundJobs starts the HTTP server and scheduler concurrently.
@@ -95,9 +128,9 @@ func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// Start the HTTP server and job scheduler concurrently
+	// Start the HTTP server
 	g.Go(func() error {
-		return httpServer.ServeHTTP(gCtx)
+		return httpServer.Serve(gCtx)
 	})
 
 	// Wait for the context to be done (e.g., due to an interrupt signal)
@@ -105,7 +138,7 @@ func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP) error {
 
 	// Wait for all goroutines to finish
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to run concurrent tasks: %w", err)
+		return fmt.Errorf("failed to start one of the background jobs: %w", err)
 	}
 
 	return nil
