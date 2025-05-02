@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ansoncht/flight-microservices/pkg/client"
+	"github.com/ansoncht/flight-microservices/pkg/http"
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/logger"
-	"github.com/ansoncht/flight-microservices/pkg/server"
 	"github.com/spf13/viper"
 )
 
 // FlightReaderConfig holds all configurations related to flight reader.
 type FlightReaderConfig struct {
-	HTTPServerConfig      server.HTTPConfig     `mapstructure:"http_server"`
-	HTTPClientConfig      client.HTTPConfig     `mapstructure:"http_client"`
+	HTTPServerConfig      http.ServerConfig     `mapstructure:"http_server"`
+	HTTPClientConfig      http.ClientConfig     `mapstructure:"http_client"`
 	FlightAPIClientConfig FlightAPIClientConfig `mapstructure:"flight_api_client"`
 	RouteAPIClientConfig  RouteAPIClientConfig  `mapstructure:"route_api_client"`
 	KafkaWriterConfig     kafka.WriterConfig    `mapstructure:"kafka_writer"`

@@ -9,14 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	readerClient "github.com/ansoncht/flight-microservices/internal/reader/client"
+	"github.com/ansoncht/flight-microservices/internal/reader/client"
 	"github.com/ansoncht/flight-microservices/internal/reader/config"
 	"github.com/ansoncht/flight-microservices/internal/reader/service"
 
-	"github.com/ansoncht/flight-microservices/pkg/client"
+	appHTTP "github.com/ansoncht/flight-microservices/pkg/http"
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/logger"
-	"github.com/ansoncht/flight-microservices/pkg/server"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -39,7 +38,7 @@ func main() {
 
 	slog.SetDefault(&logger)
 
-	httpClient, err := client.NewHTTPClient(cfg.HTTPClientConfig)
+	httpClient, err := appHTTP.NewClient(cfg.HTTPClientConfig)
 	if err != nil {
 		slog.Error("Failed to create HTTP client", "error", err)
 		return
@@ -80,13 +79,13 @@ func main() {
 }
 
 func initializeHTTPServerWithHandler(
-	httpCfg server.HTTPConfig,
+	httpCfg appHTTP.ServerConfig,
 	readerService *service.Reader,
-) (*server.HTTP, error) {
+) (*appHTTP.HTTP, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/fetch", readerService.HTTPHandler)
 
-	httpServer, err := server.NewHTTPServer(httpCfg, mux)
+	httpServer, err := appHTTP.NewServer(httpCfg, mux)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP server: %w", err)
 	}
@@ -100,12 +99,12 @@ func initializeReaderService(
 	kafkaCfg kafka.WriterConfig,
 	httpClient *http.Client,
 ) (*service.Reader, error) {
-	flightClient, err := readerClient.NewFlightAPIClient(flightCfg, httpClient)
+	flightClient, err := client.NewFlightAPIClient(flightCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create flight api client: %w", err)
 	}
 
-	routeClient, err := readerClient.NewRouteAPIClient(routeCfg, httpClient)
+	routeClient, err := client.NewRouteAPIClient(routeCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create route api client: %w", err)
 	}
@@ -124,7 +123,7 @@ func initializeReaderService(
 }
 
 // startBackgroundJobs starts the HTTP server and scheduler concurrently.
-func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP) error {
+func startBackgroundJobs(ctx context.Context, httpServer *appHTTP.HTTP) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -148,7 +147,7 @@ func startBackgroundJobs(ctx context.Context, httpServer *server.HTTP) error {
 func safeShutDown(
 	ctx context.Context,
 	httpClient *http.Client,
-	httpServer *server.HTTP,
+	httpServer *appHTTP.HTTP,
 ) error {
 	// Attempt to close the HTTP server
 	if err := httpServer.Close(ctx); err != nil {
