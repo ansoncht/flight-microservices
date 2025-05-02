@@ -1,4 +1,4 @@
-package server_test
+package http_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ansoncht/flight-microservices/pkg/server"
+	server "github.com/ansoncht/flight-microservices/pkg/http"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,8 +20,8 @@ func testHandler(w http.ResponseWriter, _ *http.Request) {
 
 func TestNewHTTPServer_ValidConfigAndHandler_ShouldSucceed(t *testing.T) {
 	t.Run("Valid Config", func(t *testing.T) {
-		cfg := server.HTTPConfig{Port: "8080", Timeout: 5}
-		actual, err := server.NewHTTPServer(cfg, http.HandlerFunc(testHandler))
+		cfg := server.ServerConfig{Port: "8080", Timeout: 5}
+		actual, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 
 		require.NoError(t, err)
 		require.NotNil(t, actual)
@@ -31,29 +31,29 @@ func TestNewHTTPServer_ValidConfigAndHandler_ShouldSucceed(t *testing.T) {
 func TestNewHTTPServer_InvalidPort_ShouldError(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     server.HTTPConfig
+		cfg     server.ServerConfig
 		wantErr string
 	}{
 		{
 			name:    "Empty Port",
-			cfg:     server.HTTPConfig{Port: "", Timeout: 5},
+			cfg:     server.ServerConfig{Port: "", Timeout: 5},
 			wantErr: "port number is empty",
 		},
 		{
 			name:    "Invalid Port",
-			cfg:     server.HTTPConfig{Port: "abc", Timeout: 5},
+			cfg:     server.ServerConfig{Port: "abc", Timeout: 5},
 			wantErr: "port number is invalid",
 		},
 		{
 			name:    "Negative Port",
-			cfg:     server.HTTPConfig{Port: "-1010", Timeout: 5},
+			cfg:     server.ServerConfig{Port: "-1010", Timeout: 5},
 			wantErr: "port number must be greater than 0",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := server.NewHTTPServer(tt.cfg, http.HandlerFunc(testHandler))
+			actual, err := server.NewServer(tt.cfg, http.HandlerFunc(testHandler))
 
 			require.Nil(t, actual)
 			require.ErrorContains(t, err, tt.wantErr)
@@ -64,21 +64,21 @@ func TestNewHTTPServer_InvalidPort_ShouldError(t *testing.T) {
 func TestNewHTTPServer_InvalidTimeout_ShouldError(t *testing.T) {
 	tests := []struct {
 		name string
-		cfg  server.HTTPConfig
+		cfg  server.ServerConfig
 	}{
 		{
 			name: "Zero Timeout",
-			cfg:  server.HTTPConfig{Port: "8080", Timeout: 0},
+			cfg:  server.ServerConfig{Port: "8080", Timeout: 0},
 		},
 		{
 			name: "Negative Timeout",
-			cfg:  server.HTTPConfig{Port: "8080", Timeout: -1},
+			cfg:  server.ServerConfig{Port: "8080", Timeout: -1},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := server.NewHTTPServer(tt.cfg, http.HandlerFunc(testHandler))
+			actual, err := server.NewServer(tt.cfg, http.HandlerFunc(testHandler))
 
 			require.Nil(t, actual)
 			require.ErrorContains(t, err, "http server timeout is invalid")
@@ -88,8 +88,8 @@ func TestNewHTTPServer_InvalidTimeout_ShouldError(t *testing.T) {
 
 func TestNewHTTPServer_NilHandler_ShouldError(t *testing.T) {
 	t.Run("Nil Handler", func(t *testing.T) {
-		cfg := server.HTTPConfig{Port: "8080", Timeout: 5}
-		actual, err := server.NewHTTPServer(cfg, nil)
+		cfg := server.ServerConfig{Port: "8080", Timeout: 5}
+		actual, err := server.NewServer(cfg, nil)
 
 		require.Nil(t, actual)
 		require.ErrorContains(t, err, "handler is nil")
@@ -97,8 +97,8 @@ func TestNewHTTPServer_NilHandler_ShouldError(t *testing.T) {
 }
 
 func TestServe_ContextCanceledOrDeadlineExceeded_ShouldError(t *testing.T) {
-	cfg := server.HTTPConfig{Port: "8081", Timeout: 2}
-	actual, err := server.NewHTTPServer(cfg, http.HandlerFunc(testHandler))
+	cfg := server.ServerConfig{Port: "8081", Timeout: 2}
+	actual, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 
 	require.NoError(t, err)
 	require.NotNil(t, actual)
@@ -125,8 +125,8 @@ func TestServe_ServerError_ShouldError(t *testing.T) {
 
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	cfg := server.HTTPConfig{Port: fmt.Sprintf("%d", port), Timeout: 5}
-	actual, err := server.NewHTTPServer(cfg, http.HandlerFunc(testHandler))
+	cfg := server.ServerConfig{Port: fmt.Sprintf("%d", port), Timeout: 5}
+	actual, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 
 	require.NoError(t, err)
 
@@ -143,8 +143,8 @@ func TestServe_ServerError_ShouldError(t *testing.T) {
 }
 
 func TestClose_GracefulShutdown_ShouldSucceed(t *testing.T) {
-	cfg := server.HTTPConfig{Port: "8082", Timeout: 5}
-	actual, err := server.NewHTTPServer(cfg, http.HandlerFunc(testHandler))
+	cfg := server.ServerConfig{Port: "8082", Timeout: 5}
+	actual, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 
 	require.NoError(t, err)
 	require.NotNil(t, actual)
@@ -166,14 +166,14 @@ func TestClose_GracefulShutdown_ShouldSucceed(t *testing.T) {
 }
 
 func TestClose_ContextCanceledOrDeadlineExceeded_ShouldError(t *testing.T) {
-	cfg := server.HTTPConfig{Port: "8086", Timeout: 5}
+	cfg := server.ServerConfig{Port: "8086", Timeout: 5}
 
 	slowHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	actual, err := server.NewHTTPServer(cfg, slowHandler)
+	actual, err := server.NewServer(cfg, slowHandler)
 
 	require.NoError(t, err)
 	require.NotNil(t, actual)

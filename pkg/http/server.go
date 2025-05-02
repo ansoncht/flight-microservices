@@ -1,4 +1,4 @@
-package server
+package http
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// HTTPConfig holds configuration settings for the HTTP server.
-type HTTPConfig struct {
+// ServerConfig holds configuration settings for the HTTP server.
+type ServerConfig struct {
 	// Port specifies the port where the HTTP server listens for requests.
 	Port string `mapstructure:"port"`
 	// Timeout specifies the timeout for reading HTTP headers in seconds.
@@ -22,8 +22,8 @@ type HTTP struct {
 	server *http.Server
 }
 
-// NewHTTPServer creates a new HTTP server instance based on the provided configuration.
-func NewHTTPServer(cfg HTTPConfig, handler http.Handler) (*HTTP, error) {
+// NewServer creates a new HTTP server instance based on the provided configuration.
+func NewServer(cfg ServerConfig, handler http.Handler) (*HTTP, error) {
 	slog.Info("Initializing HTTP server for the service", "port", cfg.Port, "timeout", cfg.Timeout)
 
 	if handler == nil {

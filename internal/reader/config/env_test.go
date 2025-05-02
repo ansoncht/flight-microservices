@@ -14,6 +14,8 @@ func TestLoadConfig_ValidConfigFile_ShouldSucceed(t *testing.T) {
 		os.Setenv("FLIGHT_READER_FLIGHT_API_CLIENT_USER", "test")
 		os.Setenv("FLIGHT_READER_FLIGHT_API_CLIENT_PASS", "test")
 		os.Setenv("FLIGHT_READER_ROUTE_API_CLIENT_URL", "test")
+		os.Setenv("FLIGHT_READER_KAFKA_WRITER_ADDRESS", "test")
+		os.Setenv("FLIGHT_READER_KAFKA_WRITER_TOPIC", "test")
 
 		cfg, err := config.LoadConfig()
 
@@ -25,6 +27,8 @@ func TestLoadConfig_ValidConfigFile_ShouldSucceed(t *testing.T) {
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.URL)
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.User)
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.Pass)
+		require.Equal(t, "test", cfg.KafkaWriterConfig.Address)
+		require.Equal(t, "test", cfg.KafkaWriterConfig.Topic)
 		require.True(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "info", cfg.LoggerConfig.Level)
 	})
@@ -82,6 +86,12 @@ http_client:
 
 func TestLoadConfig_EnvOverride_ShouldSucceed(t *testing.T) {
 	t.Run("Override Config File", func(t *testing.T) {
+		os.Setenv("FLIGHT_READER_FLIGHT_API_CLIENT_URL", "test")
+		os.Setenv("FLIGHT_READER_FLIGHT_API_CLIENT_USER", "test")
+		os.Setenv("FLIGHT_READER_FLIGHT_API_CLIENT_PASS", "test")
+		os.Setenv("FLIGHT_READER_ROUTE_API_CLIENT_URL", "test")
+		os.Setenv("FLIGHT_READER_KAFKA_WRITER_ADDRESS", "test")
+		os.Setenv("FLIGHT_READER_KAFKA_WRITER_TOPIC", "test")
 		t.Setenv("FLIGHT_READER_LOGGER_LEVEL", "debug")
 		t.Setenv("FLIGHT_READER_LOGGER_JSON", "false")
 
@@ -95,6 +105,8 @@ func TestLoadConfig_EnvOverride_ShouldSucceed(t *testing.T) {
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.URL)
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.User)
 		require.Equal(t, "test", cfg.FlightAPIClientConfig.Pass)
+		require.Equal(t, "test", cfg.KafkaWriterConfig.Address)
+		require.Equal(t, "test", cfg.KafkaWriterConfig.Topic)
 		require.False(t, cfg.LoggerConfig.JSON)
 		require.Equal(t, "debug", cfg.LoggerConfig.Level)
 	})

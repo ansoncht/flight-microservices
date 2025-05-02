@@ -1,4 +1,4 @@
-package client
+package http
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-// HTTPConfig holds configuration settings for the HTTP client.
-type HTTPConfig struct {
+// ClientConfig holds configuration settings for the HTTP client.
+type ClientConfig struct {
 	// Timeout specifies the timeout for reading HTTP headers in seconds.
 	Timeout int `mapstructure:"timeout"`
 }
 
-// NewHTTPClient creates a new http client based on the provided configuration.
-func NewHTTPClient(cfg HTTPConfig) (*http.Client, error) {
+// NewClient creates a new http client based on the provided configuration.
+func NewClient(cfg ClientConfig) (*http.Client, error) {
 	slog.Info("Initializing HTTP client for the service", "timeout", cfg.Timeout)
 
 	// Validate the configuration
