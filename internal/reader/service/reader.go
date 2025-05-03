@@ -12,7 +12,7 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/reader/client"
 	"github.com/ansoncht/flight-microservices/internal/reader/model"
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
-	"github.com/ansoncht/flight-microservices/pkg/models"
+	msg "github.com/ansoncht/flight-microservices/pkg/model"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -142,7 +142,7 @@ func (r *Reader) sendFlightAndRouteMessage(
 	flight model.Flight,
 	route model.Route,
 ) error {
-	record := &models.FlightRecord{
+	record := &msg.FlightRecord{
 		FlightNumber: route.Response.FlightRoute.CallSignIATA,
 		Airline:      route.Response.FlightRoute.Airline.Name,
 		Origin:       route.Response.FlightRoute.Origin.IATACode,

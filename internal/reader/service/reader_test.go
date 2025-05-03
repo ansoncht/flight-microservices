@@ -10,7 +10,7 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/reader/client"
 	"github.com/ansoncht/flight-microservices/internal/reader/model"
 	"github.com/ansoncht/flight-microservices/internal/reader/service"
-	"github.com/ansoncht/flight-microservices/internal/reader/service/mocks"
+	"github.com/ansoncht/flight-microservices/internal/reader/service/mock"
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -89,9 +89,9 @@ func TestHTTPHandler_WorkingComponents_ShouldSucceed(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mRoutes := mocks.NewMockRoutesClient(ctrl)
-	mFlights := mocks.NewMockFlightsClient(ctrl)
-	mKafka := mocks.NewMockMessageWriter(ctrl)
+	mRoutes := mock.NewMockRoutesClient(ctrl)
+	mFlights := mock.NewMockFlightsClient(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
 
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
@@ -131,7 +131,7 @@ func TestHTTPHandler_WorkingComponents_ShouldSucceed(t *testing.T) {
 func TestHTTPHandler_FlightsClientError_ShouldError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	m := mocks.NewMockFlightsClient(ctrl)
+	m := mock.NewMockFlightsClient(ctrl)
 
 	m.EXPECT().FetchFlights(context.Background(), "VHHH", gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
 
@@ -157,8 +157,8 @@ func TestHTTPHandler_RoutesClientError_ShouldSucceed(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mRoutes := mocks.NewMockRoutesClient(ctrl)
-	mFlights := mocks.NewMockFlightsClient(ctrl)
+	mRoutes := mock.NewMockRoutesClient(ctrl)
+	mFlights := mock.NewMockFlightsClient(ctrl)
 
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
@@ -189,9 +189,9 @@ func TestHTTPHandler_MessageWriterError_ShouldSucceed(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mRoutes := mocks.NewMockRoutesClient(ctrl)
-	mFlights := mocks.NewMockFlightsClient(ctrl)
-	mKafka := mocks.NewMockMessageWriter(ctrl)
+	mRoutes := mock.NewMockRoutesClient(ctrl)
+	mFlights := mock.NewMockFlightsClient(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
 
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
