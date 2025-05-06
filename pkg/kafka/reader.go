@@ -40,7 +40,6 @@ func NewKafkaReader(cfg ReaderConfig) (*Reader, error) {
 		"Initializing Kafka reader for the service",
 		"address", cfg.Address,
 		"topic", cfg.Topic,
-		"group_id", cfg.GroupID,
 	)
 
 	// Validate the configuration
@@ -60,7 +59,6 @@ func NewKafkaReader(cfg ReaderConfig) (*Reader, error) {
 		KafkaReader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers: []string{cfg.Address},
 			Topic:   cfg.Topic,
-			GroupID: cfg.GroupID,
 		}),
 	}, nil
 }
@@ -84,27 +82,29 @@ func (r *Reader) Close() error {
 func (r *Reader) ReadMessages(ctx context.Context, msgChan chan<- kafka.Message) error {
 	slog.Info("Reading message from Kafka topic")
 
+	defer close(msgChan)
+
 	if r == nil {
 		return fmt.Errorf("kafka reader is nil")
 	}
 
-	defer close(msgChan)
-
+readingLoop:
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context canceled while reading messages: %w", ctx.Err())
+			break readingLoop
 		default:
 			// Read a message from Kafka
 			message, err := r.KafkaReader.ReadMessage(ctx)
+
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					slog.Info("Kafka reader stopped due to reaching EOF")
-					return nil
+					slog.Info("Kafka reader reached EOF")
+					continue
 				}
 				if errors.Is(err, context.Canceled) {
-					slog.Info("Kafka reader stopped due to context cancellation")
-					return nil
+					slog.Info("Context canceled during ReadMessage")
+					break readingLoop
 				}
 				return fmt.Errorf("failed to read message from Kafka: %w", err)
 			}
@@ -121,8 +121,15 @@ func (r *Reader) ReadMessages(ctx context.Context, msgChan chan<- kafka.Message)
 					"value", string(message.Value),
 				)
 			case <-ctx.Done():
-				return fmt.Errorf("context canceled while reading messages: %w", ctx.Err())
+				slog.Info("Context is done, stopping message reading")
+				break readingLoop
 			}
 		}
 	}
+
+	if ctx.Err() != nil {
+		return fmt.Errorf("context canceled while reading kafka messages: %w", ctx.Err())
+	}
+
+	return nil
 }

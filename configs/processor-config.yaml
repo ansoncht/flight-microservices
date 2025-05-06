@@ -1,0 +1,18 @@
+summarizer:
+  top_n: 10
+mongo:
+  uri: ''
+  db: flights
+  pool_size: 5
+  connection_timeout: 5
+  socket_timeout: 5
+kafka_writer:
+  address: ''
+  topic: ''
+kafka_reader:
+  address: ''
+  topic: ''
+  group_id: ''
+logger:
+  json: true
+  level: 'info'

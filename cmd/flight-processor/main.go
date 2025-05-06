@@ -8,11 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/client"
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/config"
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/db"
-	"github.com/ansoncht/flight-microservices/cmd/flight-processor/internal/server"
+	"github.com/ansoncht/flight-microservices/internal/processor/config"
+	"github.com/ansoncht/flight-microservices/internal/processor/repository"
+	"github.com/ansoncht/flight-microservices/internal/processor/service"
+
+	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/logger"
+	"github.com/ansoncht/flight-microservices/pkg/mongo"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,43 +32,43 @@ func main() {
 	// Create a customized logger
 	logger, err := logger.NewLogger(cfg.LoggerConfig)
 	if err != nil {
-		slog.Warn(
-			"Failed to create custom logger, using default logger instead",
-			"error", err,
-		)
+		slog.Warn("Failed to create custom logger, using default logger instead", "error", err)
 	}
 
 	slog.SetDefault(&logger)
 
-	// Create a Mongo client
-	mongoDB, err := db.NewMongo(cfg.MongoClientConfig)
+	mongoDB, err := mongo.NewMongoClient(ctx, cfg.MongoClientConfig)
 	if err != nil {
-		slog.Error("Failed to create Mongo client", "error", err)
+		slog.Error("Failed to create MongoDB client", "error", err)
 		return
 	}
 
-	// Create a gRPC client
-	grpcClient, err := client.NewGRPC(cfg.GrpcClientConfig)
+	repo, err := repository.NewMongoSummaryRepository(mongoDB)
 	if err != nil {
-		slog.Error("Failed to create gRPC client", "error", err)
+		slog.Error("Failed to create summary repository", "error", err)
 		return
 	}
 
-	// Create a gRPC server
-	grpcServer, err := server.NewGRPC(cfg.GrpcServerConfig, mongoDB, grpcClient)
+	// Create processor service to gather statistic
+	processor, err := initializeProcessorService(
+		cfg.KafkaWriterConfig,
+		cfg.KafkaReaderConfig,
+		cfg.SummarizerConfig,
+		repo,
+	)
 	if err != nil {
-		slog.Error("Failed to create gRPC server", "error", err)
+		slog.Error("Failed to initialize processor service", "error", err)
 		return
 	}
 
-	// Run the server and establish mongo connection concurrently
-	if err := startBackgroundJobs(ctx, grpcServer, mongoDB); err != nil {
+	// Run the processor in background
+	if err := startBackgroundJobs(ctx, processor); err != nil {
 		slog.Error("Failed to run background jobs concurrently", "error", err)
 		return
 	}
 
-	// Perform a safe shutdown of the server and clients
-	if err := safeShutDown(ctx, grpcServer, mongoDB); err != nil {
+	// Perform a safe shutdown
+	if err := safeShutDown(ctx, processor, mongoDB); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
 		return
 	}
@@ -74,18 +76,44 @@ func main() {
 	slog.Info("Flight Processor service has fully stopped")
 }
 
-// startBackgroundJobs starts the gRPC server and Mongo client concurrently.
-func startBackgroundJobs(ctx context.Context, grpcServer *server.GrpcServer, mongoDB *db.Mongo) error {
+// initializeReaderService initializes the processor service.
+func initializeProcessorService(
+	kafkaWriterCfg kafka.WriterConfig,
+	kafkaReaderCfg kafka.ReaderConfig,
+	summarizerCfg config.SummarizerConfig,
+	repo repository.SummaryRepository,
+) (*service.Processor, error) {
+	kafkaWriter, err := kafka.NewKafkaWriter(kafkaWriterCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka writer: %w", err)
+	}
+
+	kafkaReader, err := kafka.NewKafkaReader(kafkaReaderCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka reader: %w", err)
+	}
+
+	summarizer, err := service.NewSummarizer(summarizerCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create summarizer: %w", err)
+	}
+
+	processor, err := service.NewProcessor(kafkaWriter, kafkaReader, summarizer, repo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create processor service: %w", err)
+	}
+
+	return processor, nil
+}
+
+// startBackgroundJobs starts the processor service in background.
+func startBackgroundJobs(ctx context.Context, processor *service.Processor) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// Start the gRPC server and Mongo client concurrently
+	// Start the processor service
 	g.Go(func() error {
-		return grpcServer.ServeGRPC(gCtx)
-	})
-
-	g.Go(func() error {
-		return mongoDB.Connect(gCtx)
+		return processor.Process(gCtx)
 	})
 
 	// Wait for the context to be done (e.g., due to an interrupt signal)
@@ -93,19 +121,23 @@ func startBackgroundJobs(ctx context.Context, grpcServer *server.GrpcServer, mon
 
 	// Wait for all goroutines to finish
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to run concurrent tasks: %w", err)
+		return fmt.Errorf("failed to run processor: %w", err)
 	}
 
 	return nil
 }
 
-// safeShutDown shut down clients and server gracefully.
-func safeShutDown(ctx context.Context, grpcServer *server.GrpcServer, mongoDB *db.Mongo) error {
-	slog.Info("Shutting down gRPC server and MongoDB client")
+// safeShutDown shut down MongoDB client and kafka reader gracefully.
+func safeShutDown(ctx context.Context, processor *service.Processor, mongodb *mongo.Client) error {
+	slog.Info("Shutting down components")
 
-	grpcServer.Close()
+	if err := processor.MessageReader.Close(); err != nil {
+		slog.Error("Failed to shutdown message reader", "error", err)
+		return fmt.Errorf("failed to shutdown message reader: %w", err)
+	}
 
-	if err := mongoDB.Disconnect(ctx); err != nil {
+	if err := mongodb.Client.Disconnect(ctx); err != nil {
+		slog.Error("Failed to shutdown MongoDB client", "error", err)
 		return fmt.Errorf("failed to shutdown mongodb client: %w", err)
 	}
 
