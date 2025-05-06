@@ -3,11 +3,11 @@ http_server:
   timeout: 10
 http_client:
   timeout: 10
-flight_api_client:
+flight_api:
   url: ''
   user: ''
   pass: ''
-route_api_client:
+route_api:
   url: ''
 kafka_writer:
   address: ''

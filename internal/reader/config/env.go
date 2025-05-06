@@ -12,16 +12,16 @@ import (
 
 // FlightReaderConfig holds all configurations related to flight reader.
 type FlightReaderConfig struct {
-	HTTPServerConfig      http.ServerConfig     `mapstructure:"http_server"`
-	HTTPClientConfig      http.ClientConfig     `mapstructure:"http_client"`
-	FlightAPIClientConfig FlightAPIClientConfig `mapstructure:"flight_api_client"`
-	RouteAPIClientConfig  RouteAPIClientConfig  `mapstructure:"route_api_client"`
-	KafkaWriterConfig     kafka.WriterConfig    `mapstructure:"kafka_writer"`
-	LoggerConfig          logger.Config         `mapstructure:"logger"`
+	HTTPServerConfig      http.ServerConfig  `mapstructure:"http_server"`
+	HTTPClientConfig      http.ClientConfig  `mapstructure:"http_client"`
+	FlightAPIClientConfig FlightAPIConfig    `mapstructure:"flight_api"`
+	RouteAPIClientConfig  RouteAPIConfig     `mapstructure:"route_api"`
+	KafkaWriterConfig     kafka.WriterConfig `mapstructure:"kafka_writer"`
+	LoggerConfig          logger.Config      `mapstructure:"logger"`
 }
 
-// FlightAPIClientConfig holds configuration settings for the flight api client.
-type FlightAPIClientConfig struct {
+// FlightAPIConfig holds configuration settings for the flight api client.
+type FlightAPIConfig struct {
 	// URL specifies the base URL for the flight api.
 	URL string `mapstructure:"url"`
 	// User specifies the username for accessing the API.
@@ -30,8 +30,8 @@ type FlightAPIClientConfig struct {
 	Pass string `mapstructure:"pass"`
 }
 
-// RouteAPIClientConfig holds configuration settings for the route api client.
-type RouteAPIClientConfig struct {
+// RouteAPIConfig holds configuration settings for the route api client.
+type RouteAPIConfig struct {
 	// URL specifies the base URL for the route api.
 	URL string `mapstructure:"url"`
 }

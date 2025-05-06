@@ -1,4 +1,4 @@
-package models
+package model
 
 // FlightRecord holds the essential details a flight entry.
 type FlightRecord struct {

@@ -17,32 +17,32 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockFlightsClient is a mock of FlightsClient interface.
-type MockFlightsClient struct {
+// MockFlight is a mock of Flight interface.
+type MockFlight struct {
 	ctrl     *gomock.Controller
-	recorder *MockFlightsClientMockRecorder
+	recorder *MockFlightMockRecorder
 	isgomock struct{}
 }
 
-// MockFlightsClientMockRecorder is the mock recorder for MockFlightsClient.
-type MockFlightsClientMockRecorder struct {
-	mock *MockFlightsClient
+// MockFlightMockRecorder is the mock recorder for MockFlight.
+type MockFlightMockRecorder struct {
+	mock *MockFlight
 }
 
-// NewMockFlightsClient creates a new mock instance.
-func NewMockFlightsClient(ctrl *gomock.Controller) *MockFlightsClient {
-	mock := &MockFlightsClient{ctrl: ctrl}
-	mock.recorder = &MockFlightsClientMockRecorder{mock}
+// NewMockFlight creates a new mock instance.
+func NewMockFlight(ctrl *gomock.Controller) *MockFlight {
+	mock := &MockFlight{ctrl: ctrl}
+	mock.recorder = &MockFlightMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockFlightsClient) EXPECT() *MockFlightsClientMockRecorder {
+func (m *MockFlight) EXPECT() *MockFlightMockRecorder {
 	return m.recorder
 }
 
 // FetchFlights mocks base method.
-func (m *MockFlightsClient) FetchFlights(ctx context.Context, airportCode, start, end string) ([]model.Flight, error) {
+func (m *MockFlight) FetchFlights(ctx context.Context, airportCode, start, end string) ([]model.Flight, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchFlights", ctx, airportCode, start, end)
 	ret0, _ := ret[0].([]model.Flight)
@@ -51,7 +51,7 @@ func (m *MockFlightsClient) FetchFlights(ctx context.Context, airportCode, start
 }
 
 // FetchFlights indicates an expected call of FetchFlights.
-func (mr *MockFlightsClientMockRecorder) FetchFlights(ctx, airportCode, start, end any) *gomock.Call {
+func (mr *MockFlightMockRecorder) FetchFlights(ctx, airportCode, start, end any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchFlights", reflect.TypeOf((*MockFlightsClient)(nil).FetchFlights), ctx, airportCode, start, end)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchFlights", reflect.TypeOf((*MockFlight)(nil).FetchFlights), ctx, airportCode, start, end)
 }

@@ -20,6 +20,8 @@ type WriterConfig struct {
 type MessageWriter interface {
 	// WriteMessage writes a message to the message queue.
 	WriteMessage(ctx context.Context, key []byte, value []byte) error
+	// Close closes the message queue writer.
+	Close() error
 }
 
 // Writer holds the Kafka writer instance.
@@ -29,7 +31,7 @@ type Writer struct {
 	KafkaWriter *kafka.Writer
 }
 
-// NewKafkaWriter creates a new Writer instance based on the provided configuration.
+// NewKafkaWriter creates a new Writer instance with the provided configuration.
 func NewKafkaWriter(cfg WriterConfig) (*Writer, error) {
 	slog.Info("Initializing Kafka writer for the service", "address", cfg.Address, "topic", cfg.Topic)
 
@@ -90,7 +92,7 @@ func (w *Writer) WriteMessage(ctx context.Context, key []byte, value []byte) err
 
 	if err := w.KafkaWriter.WriteMessages(ctx, msg); err != nil {
 		slog.Error("Failed to write message to Kafka topic", "error", err)
-		return fmt.Errorf("failed to write message to Kafka topic: %w", err)
+		return fmt.Errorf("failed to write message to Kafka topic %s: %w", w.KafkaWriter.Topic, err)
 	}
 
 	slog.Info("Message written to Kafka topic successfully", "key", string(key), "message", string(value))

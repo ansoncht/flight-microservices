@@ -18,17 +18,17 @@ import (
 
 type Reader struct {
 	// flightsClient specifies the shared HTTP client to submit requests to the external flight API.
-	flightsClient client.FlightsClient
+	flightsClient client.Flight
 	// routesClient specifies the shared HTTP client to submit requests to the external route API.
-	routeClient client.RoutesClient
+	routeClient client.Route
 	// messageWriter specifies the message writer to send messages to a message queue.
 	messageWriter kafka.MessageWriter
 }
 
 // NewReader creates a new Reader instance based on the provided api clients and meesage writer.
 func NewReader(
-	flightClient client.FlightsClient,
-	routeClient client.RoutesClient,
+	flightClient client.Flight,
+	routeClient client.Route,
 	messageWriter kafka.MessageWriter,
 ) (*Reader, error) {
 	if flightClient == nil {
@@ -48,6 +48,15 @@ func NewReader(
 		routeClient:   routeClient,
 		messageWriter: messageWriter,
 	}, nil
+}
+
+// Close closes the reader service.
+func (r *Reader) Close() error {
+	if err := r.messageWriter.Close(); err != nil {
+		return fmt.Errorf("failed to close message writer: %w", err)
+	}
+
+	return nil
 }
 
 func (r *Reader) HTTPHandler(w http.ResponseWriter, req *http.Request) {

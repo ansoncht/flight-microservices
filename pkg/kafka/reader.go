@@ -20,6 +20,14 @@ type ReaderConfig struct {
 	GroupID string `mapstructure:"group_id"`
 }
 
+// MessageReader defines the interface for reading messages from a message queue.
+type MessageReader interface {
+	// ReadMessages reads messages from the message queue.
+	ReadMessages(ctx context.Context, msgChan chan<- kafka.Message) error
+	// Close closes the message queue reader.
+	Close() error
+}
+
 // Reader holds the Kafka reader instance.
 type Reader struct {
 	// KafkaReader specifies the kafka reader instance.
@@ -59,25 +67,22 @@ func NewKafkaReader(cfg ReaderConfig) (*Reader, error) {
 
 // Close closes the Kafka reader.
 func (r *Reader) Close() error {
-	slog.Debug("Closing Kafka reader")
+	slog.Info("Closing Kafka reader")
 
 	if r == nil {
 		return nil
 	}
 
 	if err := r.KafkaReader.Close(); err != nil {
-		slog.Error("Failed to close Kafka reader", "error", err)
 		return fmt.Errorf("failed to close Kafka reader: %w", err)
 	}
-
-	slog.Info("Kafka reader closed successfully")
 
 	return nil
 }
 
 // ReadMessages reads messages from the Kafka topic and sends them to the provided channel.
 func (r *Reader) ReadMessages(ctx context.Context, msgChan chan<- kafka.Message) error {
-	slog.Debug("Reading message from Kafka topic")
+	slog.Info("Reading message from Kafka topic")
 
 	if r == nil {
 		return fmt.Errorf("kafka reader is nil")
@@ -88,21 +93,19 @@ func (r *Reader) ReadMessages(ctx context.Context, msgChan chan<- kafka.Message)
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("Stopping Kafka message reader due to context cancellation")
 			return fmt.Errorf("context canceled while reading messages: %w", ctx.Err())
 		default:
 			// Read a message from Kafka
 			message, err := r.KafkaReader.ReadMessage(ctx)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					slog.Info("Kafka reader reached EOF, stopping reader")
+					slog.Info("Kafka reader stopped due to reaching EOF")
 					return nil
 				}
 				if errors.Is(err, context.Canceled) {
 					slog.Info("Kafka reader stopped due to context cancellation")
 					return nil
 				}
-				slog.Error("Failed to read message from Kafka", "error", err)
 				return fmt.Errorf("failed to read message from Kafka: %w", err)
 			}
 
@@ -118,7 +121,6 @@ func (r *Reader) ReadMessages(ctx context.Context, msgChan chan<- kafka.Message)
 					"value", string(message.Value),
 				)
 			case <-ctx.Done():
-				slog.Info("Stopping Kafka message reader due to context cancellation")
 				return fmt.Errorf("context canceled while reading messages: %w", ctx.Err())
 			}
 		}

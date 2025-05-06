@@ -13,23 +13,23 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/reader/model"
 )
 
-// RoutesClient defines the interface for fetching flight routes.
-type RoutesClient interface {
+// Route defines the interface for fetching flight route.
+type Route interface {
 	// FetchRoute retrieves the flight route for a given callsign from external API.
 	FetchRoute(ctx context.Context, callsign string) (*model.Route, error)
 }
 
-// RouteAPIClient holds the configuration for fetching flight routes from an external API.
+// RouteAPI holds the configuration for fetching flight routes from an external API.
 // It implements the RoutesClient interface to provide methods for fetching flight routes.
-type RouteAPIClient struct {
+type RouteAPI struct {
 	// client specifies the shared HTTP client to submit requests to the external route API.
 	client *http.Client
 	// BaseURL specifies the base URL for the external route API.
 	BaseURL string
 }
 
-// NewRouteAPIClient creates a new outeAPIClient instance based on the provided configuration and HTTP client.
-func NewRouteAPIClient(cfg config.RouteAPIClientConfig, client *http.Client) (*RouteAPIClient, error) {
+// NewRouteAPI creates a new RouteAPI instance based on the provided configuration and HTTP client.
+func NewRouteAPI(cfg config.RouteAPIConfig, client *http.Client) (*RouteAPI, error) {
 	slog.Info("Initializing route API client", "url", cfg.URL)
 
 	if client == nil {
@@ -41,14 +41,14 @@ func NewRouteAPIClient(cfg config.RouteAPIClientConfig, client *http.Client) (*R
 		return nil, fmt.Errorf("route api url is empty")
 	}
 
-	return &RouteAPIClient{
+	return &RouteAPI{
 		client:  client,
 		BaseURL: cfg.URL,
 	}, nil
 }
 
 // FetchRoute retrieves the flight route from the external API based on the provided callsign.
-func (c *RouteAPIClient) FetchRoute(ctx context.Context, callsign string) (*model.Route, error) {
+func (c *RouteAPI) FetchRoute(ctx context.Context, callsign string) (*model.Route, error) {
 	// Parse the base URL
 	endpoint, err := url.Parse(c.BaseURL)
 	if err != nil {
@@ -84,7 +84,7 @@ func (c *RouteAPIClient) FetchRoute(ctx context.Context, callsign string) (*mode
 }
 
 // decodeReponse decodes the JSON response body into a Route model.
-func (c *RouteAPIClient) decodeReponse(body io.ReadCloser) (model.Route, error) {
+func (c *RouteAPI) decodeReponse(body io.ReadCloser) (model.Route, error) {
 	var route model.Route
 	if err := json.NewDecoder(body).Decode(&route); err != nil {
 		return model.Route{}, fmt.Errorf("failed to parse route: %w", err)
