@@ -13,15 +13,15 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/reader/model"
 )
 
-// FlightsClient defines the interface for fetching flight data.
-type FlightsClient interface {
+// Flight defines the interface for fetching flight data.
+type Flight interface {
 	// FetchFlights retrieves a list of flights from external API.
 	FetchFlights(ctx context.Context, airportCode string, start string, end string) ([]model.Flight, error)
 }
 
-// FlightAPIClient holds the configuration for fetching flight data from an external API.
+// FlightAPI holds the configuration for fetching flight data from an external API.
 // It implements the FlightsClient interface to provide methods for fetching flight data.
-type FlightAPIClient struct {
+type FlightAPI struct {
 	// client specifies the shared HTTP client to submit requests to the external flight API.
 	client *http.Client
 	// BaseURL specifies the base URL for the external flight API.
@@ -32,8 +32,8 @@ type FlightAPIClient struct {
 	Pass string
 }
 
-// NewFlightAPIClient creates a new FlightAPIClient instance based on the provided configuration and HTTP client.
-func NewFlightAPIClient(cfg config.FlightAPIClientConfig, client *http.Client) (*FlightAPIClient, error) {
+// NewFlightAPI creates a new FlightAPI instance based on the provided configuration and HTTP client.
+func NewFlightAPI(cfg config.FlightAPIConfig, client *http.Client) (*FlightAPI, error) {
 	slog.Info("Initializing flight API client", "url", cfg.URL)
 
 	if client == nil {
@@ -53,7 +53,7 @@ func NewFlightAPIClient(cfg config.FlightAPIClientConfig, client *http.Client) (
 		return nil, fmt.Errorf("flight api password is empty")
 	}
 
-	return &FlightAPIClient{
+	return &FlightAPI{
 		client:  client,
 		BaseURL: cfg.URL,
 		User:    cfg.User,
@@ -62,7 +62,7 @@ func NewFlightAPIClient(cfg config.FlightAPIClientConfig, client *http.Client) (
 }
 
 // FetchFlights retrieves a list of flights from the external API based on the provided airport code and time range.
-func (c *FlightAPIClient) FetchFlights(
+func (c *FlightAPI) FetchFlights(
 	ctx context.Context,
 	airportCode string,
 	start string,
@@ -113,7 +113,7 @@ func (c *FlightAPIClient) FetchFlights(
 }
 
 // decodeReponse decodes the JSON response body into a slice of Flight models.
-func (c *FlightAPIClient) decodeReponse(body io.ReadCloser) ([]model.Flight, error) {
+func (c *FlightAPI) decodeReponse(body io.ReadCloser) ([]model.Flight, error) {
 	var flights []model.Flight
 	if err := json.NewDecoder(body).Decode(&flights); err != nil {
 		return nil, fmt.Errorf("failed to parse flights: %w", err)

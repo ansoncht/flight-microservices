@@ -56,5 +56,9 @@ linters:
     - whitespace
     - wrapcheck
 
+linters-settings:
+  funlen:
+    lines: 199
+
 run:
   timeout: 5m

@@ -69,8 +69,8 @@ func main() {
 		return
 	}
 
-	// Perform a safe shutdown of the server and client
-	if err := safeShutDown(ctx, httpClient, httpServer); err != nil {
+	// Perform a safe shutdown
+	if err := safeShutDown(ctx, httpClient, httpServer, reader); err != nil {
 		slog.Error("Failed to perform graceful shutdown", "error", err)
 		return
 	}
@@ -78,6 +78,7 @@ func main() {
 	slog.Info("Flight Reader service has fully stopped")
 }
 
+// initializeHTTPServerWithHandler initializes the http server with a handler to trigger reader's workflow.
 func initializeHTTPServerWithHandler(
 	httpCfg appHTTP.ServerConfig,
 	readerService *service.Reader,
@@ -93,18 +94,19 @@ func initializeHTTPServerWithHandler(
 	return httpServer, nil
 }
 
+// initializeReaderService initializes the reader service.
 func initializeReaderService(
-	flightCfg config.FlightAPIClientConfig,
-	routeCfg config.RouteAPIClientConfig,
+	flightCfg config.FlightAPIConfig,
+	routeCfg config.RouteAPIConfig,
 	kafkaCfg kafka.WriterConfig,
 	httpClient *http.Client,
 ) (*service.Reader, error) {
-	flightClient, err := client.NewFlightAPIClient(flightCfg, httpClient)
+	flightClient, err := client.NewFlightAPI(flightCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create flight api client: %w", err)
 	}
 
-	routeClient, err := client.NewRouteAPIClient(routeCfg, httpClient)
+	routeClient, err := client.NewRouteAPI(routeCfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create route api client: %w", err)
 	}
@@ -122,7 +124,7 @@ func initializeReaderService(
 	return reader, nil
 }
 
-// startBackgroundJobs starts the HTTP server and scheduler concurrently.
+// startBackgroundJobs starts the HTTP server in background.
 func startBackgroundJobs(ctx context.Context, httpServer *appHTTP.HTTP) error {
 	// Use errgroup to manage concurrent tasks
 	g, gCtx := errgroup.WithContext(ctx)
@@ -143,11 +145,12 @@ func startBackgroundJobs(ctx context.Context, httpServer *appHTTP.HTTP) error {
 	return nil
 }
 
-// safeShutDown shuts down clients and server gracefully.
+// safeShutDown shuts down http client, http server and reader gracefully.
 func safeShutDown(
 	ctx context.Context,
 	httpClient *http.Client,
 	httpServer *appHTTP.HTTP,
+	reader *service.Reader,
 ) error {
 	// Attempt to close the HTTP server
 	if err := httpServer.Close(ctx); err != nil {
@@ -157,6 +160,11 @@ func safeShutDown(
 
 	// Close the HTTP client
 	httpClient.CloseIdleConnections()
+
+	if err := reader.Close(); err != nil {
+		slog.Error("Failed to shutdown reader", "error", err)
+		return fmt.Errorf("failed to shutdown reader: %w", err)
+	}
 
 	// Return nil if all shutdowns were successful
 	return nil

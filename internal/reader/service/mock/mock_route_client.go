@@ -17,32 +17,32 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockRoutesClient is a mock of RoutesClient interface.
-type MockRoutesClient struct {
+// MockRoute is a mock of Route interface.
+type MockRoute struct {
 	ctrl     *gomock.Controller
-	recorder *MockRoutesClientMockRecorder
+	recorder *MockRouteMockRecorder
 	isgomock struct{}
 }
 
-// MockRoutesClientMockRecorder is the mock recorder for MockRoutesClient.
-type MockRoutesClientMockRecorder struct {
-	mock *MockRoutesClient
+// MockRouteMockRecorder is the mock recorder for MockRoute.
+type MockRouteMockRecorder struct {
+	mock *MockRoute
 }
 
-// NewMockRoutesClient creates a new mock instance.
-func NewMockRoutesClient(ctrl *gomock.Controller) *MockRoutesClient {
-	mock := &MockRoutesClient{ctrl: ctrl}
-	mock.recorder = &MockRoutesClientMockRecorder{mock}
+// NewMockRoute creates a new mock instance.
+func NewMockRoute(ctrl *gomock.Controller) *MockRoute {
+	mock := &MockRoute{ctrl: ctrl}
+	mock.recorder = &MockRouteMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockRoutesClient) EXPECT() *MockRoutesClientMockRecorder {
+func (m *MockRoute) EXPECT() *MockRouteMockRecorder {
 	return m.recorder
 }
 
 // FetchRoute mocks base method.
-func (m *MockRoutesClient) FetchRoute(ctx context.Context, callsign string) (*model.Route, error) {
+func (m *MockRoute) FetchRoute(ctx context.Context, callsign string) (*model.Route, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchRoute", ctx, callsign)
 	ret0, _ := ret[0].(*model.Route)
@@ -51,7 +51,7 @@ func (m *MockRoutesClient) FetchRoute(ctx context.Context, callsign string) (*mo
 }
 
 // FetchRoute indicates an expected call of FetchRoute.
-func (mr *MockRoutesClientMockRecorder) FetchRoute(ctx, callsign any) *gomock.Call {
+func (mr *MockRouteMockRecorder) FetchRoute(ctx, callsign any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchRoute", reflect.TypeOf((*MockRoutesClient)(nil).FetchRoute), ctx, callsign)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchRoute", reflect.TypeOf((*MockRoute)(nil).FetchRoute), ctx, callsign)
 }
