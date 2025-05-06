@@ -53,25 +53,22 @@ func NewKafkaWriter(cfg WriterConfig) (*Writer, error) {
 
 // Close closes the Kafka writer.
 func (w *Writer) Close() error {
-	slog.Debug("Closing Kafka writer")
+	slog.Info("Closing Kafka writer")
 
 	if w == nil {
 		return nil
 	}
 
 	if err := w.KafkaWriter.Close(); err != nil {
-		slog.Error("Failed to close Kafka writer", "error", err)
 		return fmt.Errorf("failed to close Kafka writer: %w", err)
 	}
-
-	slog.Info("Kafka writer closed successfully")
 
 	return nil
 }
 
 // WriteMessage writes a message to the Kafka topic.
 func (w *Writer) WriteMessage(ctx context.Context, key []byte, value []byte) error {
-	slog.Debug("Writing message to Kafka topic")
+	slog.Info("Writing message to Kafka topic", "key", string(key), "message", string(value))
 
 	if w == nil {
 		return fmt.Errorf("kafka writer is nil")
@@ -91,11 +88,8 @@ func (w *Writer) WriteMessage(ctx context.Context, key []byte, value []byte) err
 	}
 
 	if err := w.KafkaWriter.WriteMessages(ctx, msg); err != nil {
-		slog.Error("Failed to write message to Kafka topic", "error", err)
 		return fmt.Errorf("failed to write message to Kafka topic %s: %w", w.KafkaWriter.Topic, err)
 	}
-
-	slog.Info("Message written to Kafka topic successfully", "key", string(key), "message", string(value))
 
 	return nil
 }

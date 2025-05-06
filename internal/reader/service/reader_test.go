@@ -10,7 +10,7 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/reader/client"
 	"github.com/ansoncht/flight-microservices/internal/reader/model"
 	"github.com/ansoncht/flight-microservices/internal/reader/service"
-	"github.com/ansoncht/flight-microservices/internal/reader/service/mock"
+	"github.com/ansoncht/flight-microservices/internal/test/mock"
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
