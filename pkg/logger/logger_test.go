@@ -10,11 +10,15 @@ import (
 )
 
 func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
+	ctx := context.Background()
+
 	tests := []struct {
+		name  string
 		cfg   logger.Config
 		level slog.Level
 	}{
 		{
+			name: "JSON format",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "debug",
@@ -22,6 +26,7 @@ func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
 			level: slog.LevelDebug,
 		},
 		{
+			name: "Text format",
 			cfg: logger.Config{
 				JSON:  false,
 				Level: "debug",
@@ -31,22 +36,25 @@ func TestNewLogger_ValidFormat_ShouldSucceed(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
-
-		actual, err := logger.NewLogger(tt.cfg)
-
-		require.NoError(t, err)
-		require.NotNil(t, actual)
-		require.True(t, actual.Handler().Enabled(ctx, tt.level))
+		t.Run(tt.name, func(t *testing.T) {
+			logger, err := logger.NewLogger(tt.cfg)
+			require.NoError(t, err)
+			require.NotNil(t, logger)
+			require.True(t, logger.Handler().Enabled(ctx, tt.level))
+		})
 	}
 }
 
 func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
+	ctx := context.Background()
+
 	tests := []struct {
+		name  string
 		cfg   logger.Config
 		level slog.Level
 	}{
 		{
+			name: "Debug level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "debug",
@@ -54,6 +62,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 			level: slog.LevelDebug,
 		},
 		{
+			name: "Info level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "info",
@@ -61,6 +70,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 			level: slog.LevelInfo,
 		},
 		{
+			name: "Warn level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "warn",
@@ -68,6 +78,7 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 			level: slog.LevelWarn,
 		},
 		{
+			name: "Error level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "error",
@@ -77,28 +88,30 @@ func TestNewLogger_ValidLevel_ShouldSucceed(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
-
-		actual, err := logger.NewLogger(tt.cfg)
-
-		require.NoError(t, err)
-		require.NotNil(t, actual)
-		require.True(t, actual.Handler().Enabled(ctx, tt.level))
+		t.Run(tt.name, func(t *testing.T) {
+			logger, err := logger.NewLogger(tt.cfg)
+			require.NoError(t, err)
+			require.NotNil(t, logger)
+			require.True(t, logger.Handler().Enabled(ctx, tt.level))
+		})
 	}
 }
 
 func TestNewLogger_InvalidLevel_ShouldError(t *testing.T) {
 	tests := []struct {
+		name  string
 		cfg   logger.Config
 		level slog.Level
 	}{
 		{
+			name: "Empty level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "",
 			},
 		},
 		{
+			name: "Invalid level",
 			cfg: logger.Config{
 				JSON:  true,
 				Level: "mylevel",
@@ -107,9 +120,10 @@ func TestNewLogger_InvalidLevel_ShouldError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		actual, err := logger.NewLogger(tt.cfg)
-
-		require.ErrorContains(t, err, "invalid log level")
-		require.Equal(t, slog.Logger{}, actual)
+		t.Run(tt.name, func(t *testing.T) {
+			logger, err := logger.NewLogger(tt.cfg)
+			require.ErrorContains(t, err, "invalid log level")
+			require.Equal(t, slog.Logger{}, logger)
+		})
 	}
 }

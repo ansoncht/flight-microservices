@@ -50,8 +50,8 @@ func TestNewMongoClient_InvalidConfig_ShouldError(t *testing.T) {
 		URI:               "mongodb://localhost:27017",
 		DB:                "testdb",
 		PoolSize:          5,
-		ConnectionTimeout: 10,
-		SocketTimeout:     10,
+		ConnectionTimeout: 1,
+		SocketTimeout:     1,
 	}
 
 	tests := []struct {
@@ -125,8 +125,10 @@ func TestNewMongoClient_InvalidConfig_ShouldError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		mongo, err := mongo.NewMongoClient(ctx, tt.cfg)
-		require.ErrorContains(t, err, tt.wantErr)
-		require.Nil(t, mongo)
+		t.Run(tt.name, func(t *testing.T) {
+			mongo, err := mongo.NewMongoClient(ctx, tt.cfg)
+			require.ErrorContains(t, err, tt.wantErr)
+			require.Nil(t, mongo)
+		})
 	}
 }

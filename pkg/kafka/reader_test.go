@@ -44,7 +44,10 @@ func setupKafkaTest(ctx context.Context, t *testing.T) (brokers []string, cleanu
 
 	conn, err := kafkago.DialLeader(context.Background(), "tcp", brokers[0], testTopic, 0)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		require.NoError(t, err)
+	}()
 
 	return brokers, cleanup
 }
@@ -55,7 +58,6 @@ func TestNewKafkaReader_ValidConfig_ShouldSucceed(t *testing.T) {
 		Topic:   testTopic,
 		GroupID: testGroupID,
 	}
-
 	reader, err := msgQueue.NewKafkaReader(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
@@ -121,7 +123,6 @@ func TestReadMessages_Integration(t *testing.T) {
 	defer cleanup()
 
 	brokerAddress := brokers[0]
-
 	writer := &kafkago.Writer{
 		Addr:         kafkago.TCP(brokerAddress),
 		Topic:        testTopic,
@@ -134,14 +135,13 @@ func TestReadMessages_Integration(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
+	writeCtx, writeCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer writeCancel()
+
 	testMsg := kafkago.Message{
 		Key:   []byte(testMessageKey),
 		Value: []byte(testMessageValue),
 	}
-
-	writeCtx, writeCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer writeCancel()
-
 	err := writer.WriteMessages(writeCtx, testMsg)
 	require.NoError(t, err)
 
@@ -150,7 +150,6 @@ func TestReadMessages_Integration(t *testing.T) {
 		Topic:   testTopic,
 		GroupID: testGroupID,
 	}
-
 	reader, err := msgQueue.NewKafkaReader(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
@@ -161,10 +160,9 @@ func TestReadMessages_Integration(t *testing.T) {
 
 	t.Run("Successful ReadMessages", func(t *testing.T) {
 		msgChan := make(chan kafkago.Message, 1)
+		readErrChan := make(chan error, 1)
 		readCtx, readCancel := context.WithCancel(ctx)
 		defer readCancel()
-
-		readErrChan := make(chan error, 1)
 
 		go func() {
 			readErrChan <- reader.ReadMessages(readCtx, msgChan)
@@ -207,7 +205,6 @@ func TestReadMessages_Integration(t *testing.T) {
 
 		msgChan := make(chan kafkago.Message)
 		err = reader.ReadMessages(cancelCtx, msgChan)
-
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }
@@ -227,7 +224,6 @@ func TestReaderClose_Integration(t *testing.T) {
 			Topic:   testTopic,
 			GroupID: testGroupID,
 		}
-
 		reader, err := msgQueue.NewKafkaReader(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, reader)
