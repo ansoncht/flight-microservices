@@ -15,7 +15,6 @@ func TestNewKafkaWriter_ValidConfig_ShouldSucceed(t *testing.T) {
 		Address: "localhost:9092",
 		Topic:   testTopic,
 	}
-
 	writer, err := msgQueue.NewKafkaWriter(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
@@ -71,7 +70,6 @@ func TestWriteMessage_Integration(t *testing.T) {
 	defer cleanup()
 
 	brokerAddress := brokers[0]
-
 	writer := &msgQueue.Writer{
 		KafkaWriter: &kafkago.Writer{
 			Addr:         kafkago.TCP(brokerAddress),
@@ -98,7 +96,6 @@ func TestWriteMessage_Integration(t *testing.T) {
 			Topic:   testTopic,
 			GroupID: testGroupID + "-write-test",
 		}
-
 		reader, err := msgQueue.NewKafkaReader(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, reader)
@@ -166,7 +163,6 @@ func TestWriterClose_Integration(t *testing.T) {
 			Address: brokers[0],
 			Topic:   testTopic,
 		}
-
 		writer, err := msgQueue.NewKafkaWriter(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, writer)
