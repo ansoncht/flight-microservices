@@ -53,8 +53,6 @@ func NewKafkaWriter(cfg WriterConfig) (*Writer, error) {
 
 // Close closes the Kafka writer.
 func (w *Writer) Close() error {
-	slog.Info("Closing Kafka writer")
-
 	if w == nil {
 		return nil
 	}

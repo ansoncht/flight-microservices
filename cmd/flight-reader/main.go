@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ansoncht/flight-microservices/internal/reader/client"
 	"github.com/ansoncht/flight-microservices/internal/reader/config"
@@ -18,6 +19,8 @@ import (
 	"github.com/ansoncht/flight-microservices/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
+
+const timeout = 10 * time.Second
 
 func main() {
 	// Create a context that listens for OS interrupt signals (e.g., Ctrl+C)
@@ -63,19 +66,25 @@ func main() {
 		return
 	}
 
-	// Run the server in background
-	if err := startBackgroundJobs(ctx, httpServer); err != nil {
-		slog.Error("Failed to start background jobs", "error", err)
-		return
-	}
+	g, gCtx := errgroup.WithContext(ctx)
 
-	// Perform a safe shutdown
-	if err := safeShutDown(ctx, httpClient, httpServer, reader); err != nil {
-		slog.Error("Failed to perform graceful shutdown", "error", err)
-		return
-	}
+	g.Go(func() error {
+		slog.Info("Starting background jobs")
+		return startBackgroundJobs(gCtx, httpServer)
+	})
 
-	slog.Info("Flight Reader service has fully stopped")
+	g.Go(func() error {
+		<-gCtx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		slog.Info("Shutting down background jobs")
+		return safeShutDown(shutdownCtx, httpClient, httpServer, reader)
+	})
+
+	if err := g.Wait(); err != nil {
+		slog.Error("Service exited with error", "error", err)
+	}
 }
 
 // initializeHTTPServerWithHandler initializes the http server with a handler to trigger reader's workflow.
@@ -126,20 +135,8 @@ func initializeReaderService(
 
 // startBackgroundJobs starts the HTTP server in background.
 func startBackgroundJobs(ctx context.Context, httpServer *appHTTP.HTTP) error {
-	// Use errgroup to manage concurrent tasks
-	g, gCtx := errgroup.WithContext(ctx)
-
-	// Start the HTTP server
-	g.Go(func() error {
-		return httpServer.Serve(gCtx)
-	})
-
-	// Wait for the context to be done (e.g., due to an interrupt signal)
-	<-gCtx.Done()
-
-	// Wait for all goroutines to finish
-	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to start one of the background jobs: %w", err)
+	if err := httpServer.Serve(ctx); err != nil {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 
 	return nil
