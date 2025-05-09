@@ -10,11 +10,10 @@ import (
 
 func TestNewHTTPClient_ValidTimeout_ShouldSucceed(t *testing.T) {
 	cfg := http.ClientConfig{Timeout: 5}
-	actual, err := http.NewClient(cfg)
-
+	client, err := http.NewClient(cfg)
 	require.NoError(t, err)
-	require.NotNil(t, actual)
-	require.Equal(t, time.Duration(cfg.Timeout)*time.Second, actual.Timeout)
+	require.NotNil(t, client)
+	require.Equal(t, time.Duration(cfg.Timeout)*time.Second, client.Timeout)
 }
 
 func TestNewHTTPClient_InvalidTimeout_ShouldError(t *testing.T) {
@@ -34,8 +33,8 @@ func TestNewHTTPClient_InvalidTimeout_ShouldError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := http.NewClient(tt.cfg)
-			require.Nil(t, actual)
+			client, err := http.NewClient(tt.cfg)
+			require.Nil(t, client)
 			require.ErrorContains(t, err, "http client timeout is invalid")
 		})
 	}

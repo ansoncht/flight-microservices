@@ -60,24 +60,19 @@ func NewServer(cfg ServerConfig, handler http.Handler) (*HTTP, error) {
 
 // Serve starts the HTTP server and handles incoming requests.
 func (h *HTTP) Serve(ctx context.Context) error {
-	slog.Info("Starting HTTP server", "port", h.server.Addr)
-
 	c := make(chan error)
 
 	// Start the server in a goroutine
 	go func() {
 		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Failed to start HTTP server", "error", err)
 			c <- err
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		slog.Info("Stopping HTTP server due to context cancellation")
 		return fmt.Errorf("context canceled while running HTTP server: %w", ctx.Err())
 	case err := <-c:
-		slog.Error("Failed to start HTTP server", "error", err)
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 }
@@ -85,7 +80,6 @@ func (h *HTTP) Serve(ctx context.Context) error {
 // Close gracefully shuts down the HTTP server.
 func (h *HTTP) Close(ctx context.Context) error {
 	if err := h.server.Shutdown(ctx); err != nil {
-		slog.Error("Failed to shutdown HTTP server", "error", err)
 		return fmt.Errorf("failed to shutdown: %w", err)
 	}
 

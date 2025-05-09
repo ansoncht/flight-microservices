@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -108,20 +107,14 @@ func TestServe_ServerError_ShouldError(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	port := ln.Addr().(*net.TCPAddr).Port
-	cfg := server.ServerConfig{Port: fmt.Sprintf("%d", port), Timeout: 5}
+	cfg := server.ServerConfig{Port: fmt.Sprintf("%d", 123), Timeout: 5}
 	server, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
+	err = server.Serve(context.Background())
 
-	err = server.Serve(ctx)
 	require.Error(t, err)
-	require.True(t,
-		strings.Contains(err.Error(), "context canceled while running HTTP server") ||
-			strings.Contains(err.Error(), "failed to start HTTP server"),
-	)
+	require.ErrorContains(t, err, "failed to start HTTP server")
 }
 
 func TestClose_GracefulShutdown_ShouldSucceed(t *testing.T) {
