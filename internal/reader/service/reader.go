@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -25,7 +26,7 @@ type Reader struct {
 	messageWriter kafka.MessageWriter
 }
 
-// NewReader creates a new Reader instance based on the provided api clients and meesage writer.
+// NewReader creates a new Reader instance based on the provided api clients and message writer.
 func NewReader(
 	flightClient client.Flight,
 	routeClient client.Route,
@@ -72,10 +73,16 @@ func (r *Reader) HTTPHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Set the response header for JSON content type
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if _, err := w.Write([]byte("Flights processed successfully")); err != nil {
-		slog.Error("Failed to write HTTP response", "error", err)
+	// Encode a success message as JSON
+	response := map[string]string{"message": "flights processed successfully"}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Failed to write response", "error", err)
+		http.Error(w, "failed to send response", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -91,12 +98,10 @@ func (r *Reader) processFlights(
 
 	flights, err := r.flightsClient.FetchFlights(ctx, airport, begin, end)
 	if err != nil {
-		slog.Error("Failed to process flights", "error", err)
 		return fmt.Errorf("failed to process flights: %w", err)
 	}
 
 	if err := r.processRoute(ctx, flights); err != nil {
-		slog.Error("Failed to process routes", "error", err)
 		return fmt.Errorf("failed to process routes: %w", err)
 	}
 
@@ -108,7 +113,8 @@ func (r *Reader) processRoute(ctx context.Context, flights []model.Flight) error
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// For each flight entry, process its route concurrently
-	for _, flight := range flights {
+	for _, f := range flights {
+		flight := f
 		if flight.Origin != "" && flight.Destination != "" && flight.Origin != flight.Destination {
 			g.Go(func() error {
 				callsign := strings.TrimSpace(flight.Callsign)
@@ -119,19 +125,23 @@ func (r *Reader) processRoute(ctx context.Context, flights []model.Flight) error
 
 				route, err := r.routeClient.FetchRoute(gCtx, callsign)
 				if err != nil {
+					if errors.Is(err, context.Canceled) {
+						return fmt.Errorf("context canceled while processing route: %w", gCtx.Err())
+					}
+
 					slog.Warn("Failed to fetch route", "callsign", callsign, "error", err)
-					// return fmt.Errorf("failed to fetch route for %s: %w", callsign, err)
 					return nil
 				}
 
 				// Send the flight and route data to a message queue
 				if err := r.sendFlightAndRouteMessage(gCtx, flight, *route); err != nil {
+					if errors.Is(err, context.Canceled) {
+						return fmt.Errorf("context canceled while sending flight and route: %w", gCtx.Err())
+					}
+
 					slog.Warn("Failed to send flight and route message", "callsign", callsign, "error", err)
-					// return fmt.Errorf("failed to send flight and route message for %s: %w", callsign, err)
 					return nil
 				}
-
-				slog.Debug("Successfully sent flight and route message", "callsign", callsign)
 
 				return nil
 			})
@@ -168,7 +178,6 @@ func (r *Reader) sendFlightAndRouteMessage(
 	key := []byte(route.Response.FlightRoute.CallSignIATA)
 
 	if err := r.messageWriter.WriteMessage(ctx, key, value); err != nil {
-		slog.Error("Failed to write message to the message queue", "error", err)
 		return fmt.Errorf("failed to write message to the message queue: %w", err)
 	}
 

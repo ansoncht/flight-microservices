@@ -18,37 +18,38 @@ func TestNewRouteAPI_ValidConfig_ShouldSucceed(t *testing.T) {
 	cfg := config.RouteAPIConfig{
 		URL: "http://localhost:8080",
 	}
-
-	actual, err := client.NewRouteAPI(cfg, &http.Client{})
-
+	client, err := client.NewRouteAPI(cfg, &http.Client{})
 	require.NoError(t, err)
-	require.NotNil(t, actual)
+	require.NotNil(t, client)
 }
 
 func TestNewRouteAPI_InvalidConfig_ShouldError(t *testing.T) {
-	httpClient := &http.Client{}
 	tests := []struct {
+		name    string
 		cfg     config.RouteAPIConfig
 		client  *http.Client
 		wantErr string
 	}{
 		{
+			name:    "Nil HTTP Client",
 			cfg:     config.RouteAPIConfig{URL: "http://x"},
 			client:  nil,
 			wantErr: "http client is nil",
 		},
 		{
+			name:    "Empty URL",
 			cfg:     config.RouteAPIConfig{URL: ""},
-			client:  httpClient,
+			client:  &http.Client{},
 			wantErr: "route api url is empty",
 		},
 	}
 
 	for _, tt := range tests {
-		actual, err := client.NewRouteAPI(tt.cfg, tt.client)
-
-		require.Nil(t, actual)
-		require.ErrorContains(t, err, tt.wantErr)
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := client.NewRouteAPI(tt.cfg, tt.client)
+			require.Nil(t, client)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
 	}
 }
 
@@ -75,17 +76,14 @@ func TestFetchRoute_ValidArgs_ShouldSucceed(t *testing.T) {
 	cfg := config.RouteAPIConfig{
 		URL: server.URL,
 	}
-
 	client, err := client.NewRouteAPI(cfg, server.Client())
-
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	actual, err := client.FetchRoute(context.Background(), "CRK452")
-
+	route, err := client.FetchRoute(context.Background(), "CRK452")
 	require.NoError(t, err)
-	require.NotNil(t, actual)
-	require.Equal(t, expected, *actual)
+	require.NotNil(t, route)
+	require.Equal(t, expected, *route)
 }
 
 func TestFetchRoute_InvalidArgs_ShouldError(t *testing.T) {
@@ -97,16 +95,13 @@ func TestFetchRoute_InvalidArgs_ShouldError(t *testing.T) {
 	cfg := config.RouteAPIConfig{
 		URL: server.URL,
 	}
-
 	client, err := client.NewRouteAPI(cfg, server.Client())
-
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	actual, err := client.FetchRoute(context.Background(), "ABC123")
-
+	route, err := client.FetchRoute(context.Background(), "ABC123")
 	require.ErrorContains(t, err, "unexpected status code")
-	require.Nil(t, actual)
+	require.Nil(t, route)
 }
 
 func TestFetchRoute_HTTPClientError_ShouldError(t *testing.T) {
@@ -115,14 +110,12 @@ func TestFetchRoute_HTTPClientError_ShouldError(t *testing.T) {
 	}
 
 	client, err := client.NewRouteAPI(cfg, &http.Client{})
-
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	actual, err := client.FetchRoute(context.Background(), "CRK452")
-
+	route, err := client.FetchRoute(context.Background(), "CRK452")
 	require.ErrorContains(t, err, "failed to fetch route")
-	require.Nil(t, actual)
+	require.Nil(t, route)
 }
 
 func TestFetchRoute_InvalidJSON_ShouldError(t *testing.T) {
@@ -136,14 +129,31 @@ func TestFetchRoute_InvalidJSON_ShouldError(t *testing.T) {
 	cfg := config.RouteAPIConfig{
 		URL: server.URL,
 	}
-
 	client, err := client.NewRouteAPI(cfg, server.Client())
-
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	actual, err := client.FetchRoute(context.Background(), "CRK452")
-
+	route, err := client.FetchRoute(context.Background(), "CRK452")
 	require.ErrorContains(t, err, "failed to read response body")
-	require.Nil(t, actual)
+	require.Nil(t, route)
+}
+
+func TestFetchRoute_InvalidURL_ShouldError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write([]byte("{invalid json")); err != nil {
+			slog.Error("Failed to write HTTP response", "error", err)
+		}
+	}))
+	defer server.Close()
+
+	cfg := config.RouteAPIConfig{
+		URL: "http://example.com:abc",
+	}
+	client, err := client.NewRouteAPI(cfg, server.Client())
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	route, err := client.FetchRoute(context.Background(), "CRK452")
+	require.ErrorContains(t, err, "failed to parse url")
+	require.Nil(t, route)
 }
