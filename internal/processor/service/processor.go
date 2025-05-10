@@ -9,7 +9,7 @@ import (
 	repo "github.com/ansoncht/flight-microservices/internal/processor/repository"
 	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/model"
-	"github.com/segmentio/kafka-go"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,7 +59,7 @@ func NewProcessor(
 
 func (p *Processor) Process(ctx context.Context) error {
 	flights := make([]model.FlightRecord, 0)
-	msgChan := make(chan kafka.Message)
+	msgChan := make(chan kgo.Record)
 	airport := ""
 
 	g, gCtx := errgroup.WithContext(ctx)

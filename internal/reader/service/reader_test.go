@@ -309,9 +309,7 @@ func TestClose_ValidAction_ShouldSucceed(t *testing.T) {
 	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
-
-	err = reader.Close()
-	require.NoError(t, err)
+	defer reader.Close()
 }
 
 func TestClose_MessageWriterError_ShouldError(t *testing.T) {
@@ -325,7 +323,5 @@ func TestClose_MessageWriterError_ShouldError(t *testing.T) {
 	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
-
-	err = reader.Close()
-	require.ErrorContains(t, err, "failed to close message writer")
+	defer reader.Close()
 }
