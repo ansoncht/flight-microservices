@@ -1,21 +1,6 @@
-# This configuration file is not a recommendation.
-#
-# We intentionally use a limited set of linters.
-# This configuration file is used with different version of golangci-lint to avoid regressions:
-# the linters can change between version,
-# their configuration may be not compatible or their reports can be different,
-# and this can break some of our tests.
-# Also, some linters are not relevant for the project (e.g. linters related to SQL).
-#
-# We have specific constraints, so we use a specific configuration.
-#
-# See the file `.golangci.reference.yml` to have a list of all available configuration options.
-
+version: '2'
 linters:
-  disable-all: true
-  # This list of linters is not a recommendation (same thing for all this configuration file).
-  # We intentionally use a limited set of linters.
-  # See the comment on top of this file.
+  default: none
   enable:
     - bodyclose
     - copyloopvar
@@ -26,39 +11,51 @@ linters:
     - funlen
     - gocheckcompilerdirectives
     - gochecknoinits
-    - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
-    - godox
     - godot
-    - gofmt
-    - goimports
-    - mnd
+    - godox
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
-    - intrange
     - ineffassign
+    - intrange
     - lll
     - misspell
+    - mnd
     - nakedret
     - noctx
     - nolintlint
     - revive
     - staticcheck
-    - stylecheck
     - testifylint
     - unconvert
     - unparam
     - unused
     - whitespace
     - wrapcheck
-
-linters-settings:
-  funlen:
-    lines: 199
-
-run:
-  timeout: 5m
+  settings:
+    funlen:
+      lines: 199
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

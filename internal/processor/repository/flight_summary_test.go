@@ -12,7 +12,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
 )
 
-func TestNewMongoSummaryRepository_ValidClient_ShouldSucceed(t *testing.T) {
+func TestNewMongoSummaryRepository_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	ctx := context.Background()
 
 	// Start a MongoDB container
@@ -53,7 +57,7 @@ func TestNewMongoSummaryRepository_NilClient_ShouldError(t *testing.T) {
 	require.Nil(t, repo)
 }
 
-func TestInsert__Integration(t *testing.T) {
+func TestInsert_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

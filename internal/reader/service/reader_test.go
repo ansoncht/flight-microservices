@@ -304,28 +304,10 @@ func TestClose_ValidAction_ShouldSucceed(t *testing.T) {
 
 	mKafka := mock.NewMockMessageWriter(ctrl)
 
-	mKafka.EXPECT().Close().Return(nil)
+	mKafka.EXPECT().Close().Return()
 
 	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
-
-	err = reader.Close()
-	require.NoError(t, err)
-}
-
-func TestClose_MessageWriterError_ShouldError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mKafka := mock.NewMockMessageWriter(ctrl)
-
-	mKafka.EXPECT().Close().Return(errors.New("error"))
-
-	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
-	require.NoError(t, err)
-	require.NotNil(t, reader)
-
-	err = reader.Close()
-	require.ErrorContains(t, err, "failed to close message writer")
+	defer reader.Close()
 }

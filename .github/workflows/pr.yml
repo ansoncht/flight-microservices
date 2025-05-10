@@ -45,14 +45,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.23'
+          go-version: '1.24.3'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.61
-          skip-pkg-cache: true
-          skip-build-cache: true
+          version: v2.1.0
 
       - name: Build
         if: ${{ matrix.app != 'pkg' && matrix.app != 'internal' }}
@@ -120,13 +118,13 @@ jobs:
         working-directory: pkg
 
   approve:
-    needs: integration-tests
+    needs: [build, integration-tests]
     runs-on: ubuntu-latest
     if: ${{ always() }}
 
     steps:
-      - name: Approve Build
-        if: ${{ needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped'}}
+      - name: Approve
+        if: ${{ needs.build.result == 'success' && needs.integration-tests.result == 'success' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -138,8 +136,8 @@ jobs:
             })
             process.exit(0)
 
-      - name: Fail Build
-        if: ${{ needs.integration-tests.result == 'failure' }}
+      - name: Reject
+        if: ${{ needs.build.result != 'success' || needs.integration-tests.result != 'success' }}
         uses: actions/github-script@v7
         with:
           script: |

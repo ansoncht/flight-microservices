@@ -10,7 +10,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
 )
 
-func TestNewMongoClient_ValidConfig_ShouldSucceed(t *testing.T) {
+func TestNewMongoClient_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	ctx := context.Background()
 
 	// Start a MongoDB container

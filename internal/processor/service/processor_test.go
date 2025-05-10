@@ -13,8 +13,8 @@ import (
 	"github.com/ansoncht/flight-microservices/internal/test/mock"
 	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
 	msg "github.com/ansoncht/flight-microservices/pkg/model"
-	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/mock/gomock"
 )
 
@@ -113,7 +113,7 @@ func TestProcess_ValidMessage_ShouldSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, flight2)
 
-	messages := []kafka.Message{
+	messages := []kgo.Record{
 		{Key: []byte("start_of_stream"), Value: []byte("JFK")},
 		{Key: []byte("flight"), Value: flight1},
 		{Key: []byte("flight"), Value: flight2},
@@ -121,7 +121,7 @@ func TestProcess_ValidMessage_ShouldSuccess(t *testing.T) {
 	}
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			for _, msg := range messages {
 				msgChan <- msg
@@ -168,7 +168,7 @@ func TestProcess_MalformedMessage_ShouldSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, flight1)
 
-	messages := []kafka.Message{
+	messages := []kgo.Record{
 		{Key: []byte("start_of_stream"), Value: []byte("JFK")},
 		{Key: []byte("flight"), Value: flight1},
 		{Key: []byte("flight"), Value: []byte("malformed")},
@@ -176,7 +176,7 @@ func TestProcess_MalformedMessage_ShouldSuccess(t *testing.T) {
 	}
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			for _, msg := range messages {
 				msgChan <- msg
@@ -220,13 +220,13 @@ func TestProcess_ContextCanceledWhenRead_ShouldError(t *testing.T) {
 	require.NotNil(t, flight)
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, msgChan chan<- kafka.Message) error {
+		func(ctx context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case msgChan <- kafka.Message{Key: []byte("start_of_stream"), Value: []byte("JFK")}:
+			case msgChan <- kgo.Record{Key: []byte("start_of_stream"), Value: []byte("JFK")}:
 				cancel()
 				time.Sleep(10 * time.Millisecond)
 				return ctx.Err()
@@ -259,13 +259,13 @@ func TestProcess_ContextCanceled_ShouldError(t *testing.T) {
 	require.NotNil(t, flight)
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, msgChan chan<- kafka.Message) error {
+		func(ctx context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case msgChan <- kafka.Message{Key: []byte("start_of_stream"), Value: []byte("JFK")}:
+			case msgChan <- kgo.Record{Key: []byte("start_of_stream"), Value: []byte("JFK")}:
 				cancel()
 				time.Sleep(10 * time.Millisecond)
 			}
@@ -296,7 +296,7 @@ func TestProcess_ReaderError_ShouldError(t *testing.T) {
 	require.NotNil(t, processor)
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			return errors.New("test error")
 		},
@@ -324,14 +324,14 @@ func TestProcess_SummarizeFlightsError_ShouldError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
-	messages := []kafka.Message{
+	messages := []kgo.Record{
 		{Key: []byte("start_of_stream"), Value: []byte("JFK")},
 		{Key: []byte("flight"), Value: flight},
 		{Key: []byte("end_of_stream"), Value: []byte("2025-05-07")},
 	}
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			for _, msg := range messages {
 				msgChan <- msg
@@ -364,14 +364,14 @@ func TestProcessor_Process_RepositoryInsertError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
-	messages := []kafka.Message{
+	messages := []kgo.Record{
 		{Key: []byte("start_of_stream"), Value: []byte("JFK")},
 		{Key: []byte("flight"), Value: flight},
 		{Key: []byte("end_of_stream"), Value: []byte("2025-05-07")},
 	}
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			for _, msg := range messages {
 				msgChan <- msg
@@ -415,14 +415,14 @@ func TestProcessor_Process_WriteMessageError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
-	messages := []kafka.Message{
+	messages := []kgo.Record{
 		{Key: []byte("start_of_stream"), Value: []byte("JFK")},
 		{Key: []byte("flight"), Value: flight},
 		{Key: []byte("end_of_stream"), Value: []byte("2025-05-07")},
 	}
 
 	reader.EXPECT().ReadMessages(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, msgChan chan<- kafka.Message) error {
+		func(_ context.Context, msgChan chan<- kgo.Record) error {
 			defer close(msgChan)
 			for _, msg := range messages {
 				msgChan <- msg
