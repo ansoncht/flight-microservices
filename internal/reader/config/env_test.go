@@ -17,7 +17,6 @@ func TestLoadConfig_ValidConfigFile_ShouldSucceed(t *testing.T) {
 	os.Setenv("FLIGHT_READER_KAFKA_WRITER_TOPIC", "test")
 
 	cfg, err := config.LoadConfig()
-
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, "9099", cfg.HTTPServerConfig.Port)
@@ -91,7 +90,6 @@ func TestLoadConfig_EnvOverride_ShouldSucceed(t *testing.T) {
 	t.Setenv("FLIGHT_READER_LOGGER_JSON", "false")
 
 	cfg, err := config.LoadConfig()
-
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, "9099", cfg.HTTPServerConfig.Port)

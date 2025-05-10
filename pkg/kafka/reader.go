@@ -65,8 +65,6 @@ func NewKafkaReader(cfg ReaderConfig) (*Reader, error) {
 
 // Close closes the Kafka reader.
 func (r *Reader) Close() error {
-	slog.Info("Closing Kafka reader")
-
 	if r == nil {
 		return nil
 	}

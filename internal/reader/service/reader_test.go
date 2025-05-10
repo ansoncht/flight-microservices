@@ -17,32 +17,36 @@ import (
 )
 
 func TestNewReader_NonNilClients_ShouldSucceed(t *testing.T) {
-	actual, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, &kafka.Writer{})
-
+	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, &kafka.Writer{})
 	require.NoError(t, err)
-	require.NotNil(t, actual)
+	require.NotNil(t, reader)
 }
 
 func TestNewReader_NilClient_ShouldError(t *testing.T) {
 	tests := []struct {
+		name          string
 		flightClient  client.Flight
 		routeClient   client.Route
 		messageWriter kafka.MessageWriter
 		wantErr       string
 	}{
 		{
+			name:          "Nil Flight Client",
 			flightClient:  nil,
 			routeClient:   &client.RouteAPI{},
 			messageWriter: &kafka.Writer{},
 			wantErr:       "flight client is nil",
 		},
 		{
+			name:          "Nil Route Client",
 			flightClient:  &client.FlightAPI{},
 			routeClient:   nil,
 			messageWriter: &kafka.Writer{},
 			wantErr:       "route client is nil",
 		},
 		{
+
+			name:          "Nil Message Writer",
 			flightClient:  &client.FlightAPI{},
 			routeClient:   &client.RouteAPI{},
 			messageWriter: nil,
@@ -51,33 +55,33 @@ func TestNewReader_NilClient_ShouldError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		actual, err := service.NewReader(tt.flightClient, tt.routeClient, tt.messageWriter)
-
-		require.Nil(t, actual)
-		require.ErrorContains(t, err, tt.wantErr)
+		t.Run(tt.name, func(t *testing.T) {
+			reader, err := service.NewReader(tt.flightClient, tt.routeClient, tt.messageWriter)
+			require.Nil(t, reader)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
 	}
 }
 
 func TestHTTPHandler_MissingAirport_ShouldError(t *testing.T) {
-	r, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, &kafka.Writer{})
-
+	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, &kafka.Writer{})
 	require.NoError(t, err)
-	require.NotNil(t, r)
+	require.NotNil(t, reader)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch", nil)
 	w := httptest.NewRecorder()
-
-	r.HTTPHandler(w, req)
+	reader.HTTPHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
-
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	require.Equal(t, "missing airport parameter\n", w.Body.String())
 }
 
 func TestHTTPHandler_WorkingComponents_ShouldSucceed(t *testing.T) {
-	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -88,64 +92,84 @@ func TestHTTPHandler_WorkingComponents_ShouldSucceed(t *testing.T) {
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
 	}
-	route := &model.Route{
-		Response: model.Response{
-			FlightRoute: model.FlightRoute{
-				CallSignIATA: "CRK452",
-				Airline:      model.Airline{Name: "PAL"},
-				Origin:       model.Airport{IATACode: "VHHH"},
-				Destination:  model.Airport{IATACode: "RJTT"},
-			},
-		},
-	}
 
-	mFlights.EXPECT().FetchFlights(ctx, "VHHH", gomock.Any(), gomock.Any()).Return(flights, nil)
-	mRoutes.EXPECT().FetchRoute(gomock.Any(), "CRK452").Return(route, nil)
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
 	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
+	require.NoError(t, err)
+	require.NotNil(t, reader)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
 	w := httptest.NewRecorder()
-
-	r, err := service.NewReader(mFlights, mRoutes, mKafka)
-
-	require.NoError(t, err)
-	require.NotNil(t, r)
-
-	r.HTTPHandler(w, req)
+	reader.HTTPHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
-
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Contains(t, w.Body.String(), "Flights processed successfully")
+	require.Contains(t, w.Body.String(), "flights processed successfully")
 }
 
 func TestHTTPHandler_FlightsClientError_ShouldError(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	m := mock.NewMockFlight(ctrl)
+	mFlights := mock.NewMockFlight(ctrl)
 
-	m.EXPECT().FetchFlights(context.Background(), "VHHH", gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
 
-	r, err := service.NewReader(m, &client.RouteAPI{}, &kafka.Writer{})
-
+	reader, err := service.NewReader(mFlights, &client.RouteAPI{}, &kafka.Writer{})
 	require.NoError(t, err)
-	require.NotNil(t, r)
+	require.NotNil(t, reader)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
 	w := httptest.NewRecorder()
-
-	r.HTTPHandler(w, req)
+	reader.HTTPHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
-
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	require.Contains(t, w.Body.String(), "failed to process flights")
 }
 
+func TestHTTPHandler_EmptyCallSign_ShouldSucceed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mRoutes := mock.NewMockRoute(ctrl)
+	mFlights := mock.NewMockFlight(ctrl)
+
+	flights := []model.Flight{
+		{Origin: "VHHH", Destination: "RJTT", Callsign: "", FirstSeen: 1, LastSeen: 2},
+	}
+
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+
+	reader, err := service.NewReader(mFlights, mRoutes, &kafka.Writer{})
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
+	w := httptest.NewRecorder()
+	reader.HTTPHandler(w, req)
+
+	resp := w.Result()
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, w.Body.String(), "flights processed successfully")
+}
+
 func TestHTTPHandler_RoutesClientError_ShouldSucceed(t *testing.T) {
-	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -156,28 +180,27 @@ func TestHTTPHandler_RoutesClientError_ShouldSucceed(t *testing.T) {
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
 	}
 
-	mFlights.EXPECT().FetchFlights(ctx, "VHHH", gomock.Any(), gomock.Any()).Return(flights, nil)
-	mRoutes.EXPECT().FetchRoute(gomock.Any(), "CRK452").Return(nil, errors.New("error"))
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
 
-	r, err := service.NewReader(mFlights, mRoutes, &kafka.Writer{})
-
+	reader, err := service.NewReader(mFlights, mRoutes, &kafka.Writer{})
 	require.NoError(t, err)
-	require.NotNil(t, r)
+	require.NotNil(t, reader)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
 	w := httptest.NewRecorder()
-
-	r.HTTPHandler(w, req)
+	reader.HTTPHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
-
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Contains(t, w.Body.String(), "Flights processed successfully")
+	require.Contains(t, w.Body.String(), "flights processed successfully")
 }
 
 func TestHTTPHandler_MessageWriterError_ShouldSucceed(t *testing.T) {
-	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -189,36 +212,90 @@ func TestHTTPHandler_MessageWriterError_ShouldSucceed(t *testing.T) {
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
 	}
 
-	route := &model.Route{
-		Response: model.Response{
-			FlightRoute: model.FlightRoute{
-				CallSignIATA: "CRK452",
-				Airline:      model.Airline{Name: "PAL"},
-				Origin:       model.Airport{IATACode: "VHHH"},
-				Destination:  model.Airport{IATACode: "RJTT"},
-			},
-		},
-	}
-
-	mFlights.EXPECT().FetchFlights(ctx, "VHHH", gomock.Any(), gomock.Any()).Return(flights, nil)
-	mRoutes.EXPECT().FetchRoute(gomock.Any(), "CRK452").Return(route, nil)
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
 	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("error"))
 
-	r, err := service.NewReader(mFlights, mRoutes, mKafka)
-
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
-	require.NotNil(t, r)
+	require.NotNil(t, reader)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
 	w := httptest.NewRecorder()
-
-	r.HTTPHandler(w, req)
+	reader.HTTPHandler(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
-
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Contains(t, w.Body.String(), "Flights processed successfully")
+	require.Contains(t, w.Body.String(), "flights processed successfully")
+}
+
+func TestHTTPHandler_RouteProcessContextCancellation_ShouldError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mRoutes := mock.NewMockRoute(ctrl)
+	mFlights := mock.NewMockFlight(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
+
+	flights := []model.Flight{
+		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
+	}
+
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(nil, context.Canceled)
+
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
+	w := httptest.NewRecorder()
+	reader.HTTPHandler(w, req)
+
+	resp := w.Result()
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	require.Contains(t, w.Body.String(), "failed to process at least one route")
+}
+
+func TestHTTPHandler_MessageProcessContextCancellation_ShouldError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mRoutes := mock.NewMockRoute(ctrl)
+	mFlights := mock.NewMockFlight(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
+
+	flights := []model.Flight{
+		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
+	}
+
+	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(context.Canceled)
+
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/fetch?airport=VHHH", nil)
+	w := httptest.NewRecorder()
+	reader.HTTPHandler(w, req)
+
+	resp := w.Result()
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	require.Contains(t, w.Body.String(), "failed to process at least one route")
 }
 
 func TestClose_ValidAction_ShouldSucceed(t *testing.T) {
@@ -226,31 +303,29 @@ func TestClose_ValidAction_ShouldSucceed(t *testing.T) {
 	defer ctrl.Finish()
 
 	mKafka := mock.NewMockMessageWriter(ctrl)
+
 	mKafka.EXPECT().Close().Return(nil)
 
-	actual, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
-
+	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
 	require.NoError(t, err)
-	require.NotNil(t, actual)
+	require.NotNil(t, reader)
 
-	err = actual.Close()
-
+	err = reader.Close()
 	require.NoError(t, err)
 }
 
-func TestClose_MessageWriterFailed_ShouldError(t *testing.T) {
+func TestClose_MessageWriterError_ShouldError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mKafka := mock.NewMockMessageWriter(ctrl)
+
 	mKafka.EXPECT().Close().Return(errors.New("error"))
 
-	actual, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
-
+	reader, err := service.NewReader(&client.FlightAPI{}, &client.RouteAPI{}, mKafka)
 	require.NoError(t, err)
-	require.NotNil(t, actual)
+	require.NotNil(t, reader)
 
-	err = actual.Close()
-
+	err = reader.Close()
 	require.ErrorContains(t, err, "failed to close message writer")
 }
