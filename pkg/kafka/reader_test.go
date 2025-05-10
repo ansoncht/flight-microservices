@@ -7,9 +7,10 @@ import (
 	"time"
 
 	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
-	kafkago "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/modules/kafka"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 	testGroupID        = "test-group"
 	testMessageKey     = "test-key"
 	testMessageValue   = "hello, world"
-	readTimeout        = 10 * time.Second
+	timeout            = 10 * time.Second
 )
 
 // setupKafkaTest spins up a Kafka container for testing and returns its brokers and a cleanup function.
@@ -42,12 +43,20 @@ func setupKafkaTest(ctx context.Context, t *testing.T) (brokers []string, cleanu
 	require.NoError(t, err)
 	require.NotEmpty(t, brokers)
 
-	conn, err := kafkago.DialLeader(context.Background(), "tcp", brokers[0], testTopic, 0)
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(brokers...),
+	)
 	require.NoError(t, err)
-	defer func() {
-		err := conn.Close()
-		require.NoError(t, err)
-	}()
+	defer client.Close()
+
+	admin := kadm.NewClient(client)
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	createTopicResponse, err := admin.CreateTopic(ctxTimeout, -1, -1, nil, testTopic)
+	require.NoError(t, err)
+	require.NotNil(t, createTopicResponse)
 
 	return brokers, cleanup
 }
@@ -123,43 +132,34 @@ func TestReadMessages_Integration(t *testing.T) {
 	defer cleanup()
 
 	brokerAddress := brokers[0]
-	writer := &kafkago.Writer{
-		Addr:         kafkago.TCP(brokerAddress),
-		Topic:        testTopic,
-		RequiredAcks: kafkago.RequireOne,
-		Async:        false,
-		BatchTimeout: 100 * time.Millisecond,
+
+	wCfg := msgQueue.WriterConfig{
+		Address: brokerAddress,
+		Topic:   testTopic,
 	}
-	defer func() {
-		err := writer.Close()
-		require.NoError(t, err)
-	}()
+	writer, err := msgQueue.NewKafkaWriter(wCfg)
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+	defer writer.Close()
 
 	writeCtx, writeCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer writeCancel()
 
-	testMsg := kafkago.Message{
-		Key:   []byte(testMessageKey),
-		Value: []byte(testMessageValue),
-	}
-	err := writer.WriteMessages(writeCtx, testMsg)
+	err = writer.WriteMessage(writeCtx, []byte(testMessageKey), []byte(testMessageValue))
 	require.NoError(t, err)
 
-	cfg := msgQueue.ReaderConfig{
+	rCfg := msgQueue.ReaderConfig{
 		Address: brokerAddress,
 		Topic:   testTopic,
 		GroupID: testGroupID,
 	}
-	reader, err := msgQueue.NewKafkaReader(cfg)
+	reader, err := msgQueue.NewKafkaReader(rCfg)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
-	defer func() {
-		err := reader.Close()
-		require.NoError(t, err)
-	}()
+	defer reader.Close()
 
 	t.Run("Successful ReadMessages", func(t *testing.T) {
-		msgChan := make(chan kafkago.Message, 1)
+		msgChan := make(chan kgo.Record, 1)
 		readErrChan := make(chan error, 1)
 		readCtx, readCancel := context.WithCancel(ctx)
 		defer readCancel()
@@ -170,11 +170,11 @@ func TestReadMessages_Integration(t *testing.T) {
 
 		select {
 		case msg := <-msgChan:
-			require.Equal(t, testMsg.Key, msg.Key)
-			require.Equal(t, testMsg.Value, msg.Value)
+			require.Equal(t, testMessageKey, string(msg.Key))
+			require.Equal(t, testMessageValue, string(msg.Value))
 		case err := <-readErrChan:
 			require.NoError(t, err)
-		case <-time.After(readTimeout):
+		case <-time.After(timeout):
 			t.Fatal("timed out waiting for message from Kafka")
 		}
 
@@ -190,7 +190,7 @@ func TestReadMessages_Integration(t *testing.T) {
 	})
 
 	t.Run("Nil Reader", func(t *testing.T) {
-		msgChan := make(chan kafkago.Message, 1)
+		msgChan := make(chan kgo.Record, 1)
 		readCtx, readCancel := context.WithCancel(ctx)
 		defer readCancel()
 
@@ -203,38 +203,8 @@ func TestReadMessages_Integration(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		msgChan := make(chan kafkago.Message)
+		msgChan := make(chan kgo.Record)
 		err = reader.ReadMessages(cancelCtx, msgChan)
 		require.ErrorIs(t, err, context.Canceled)
-	})
-}
-
-func TestReaderClose_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
-	ctx := context.Background()
-	brokers, cleanup := setupKafkaTest(ctx, t)
-	defer cleanup()
-
-	t.Run("Successful Close", func(t *testing.T) {
-		cfg := msgQueue.ReaderConfig{
-			Address: brokers[0],
-			Topic:   testTopic,
-			GroupID: testGroupID,
-		}
-		reader, err := msgQueue.NewKafkaReader(cfg)
-		require.NoError(t, err)
-		require.NotNil(t, reader)
-
-		err = reader.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("Nil Reader", func(t *testing.T) {
-		var reader *msgQueue.Reader
-		err := reader.Close()
-		require.NoError(t, err)
 	})
 }
