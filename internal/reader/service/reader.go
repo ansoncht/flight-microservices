@@ -52,12 +52,8 @@ func NewReader(
 }
 
 // Close closes the reader service.
-func (r *Reader) Close() error {
-	if err := r.messageWriter.Close(); err != nil {
-		return fmt.Errorf("failed to close message writer: %w", err)
-	}
-
-	return nil
+func (r *Reader) Close() {
+	r.messageWriter.Close()
 }
 
 func (r *Reader) HTTPHandler(w http.ResponseWriter, req *http.Request) {

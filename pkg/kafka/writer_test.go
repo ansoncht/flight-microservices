@@ -6,8 +6,8 @@ import (
 	"time"
 
 	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
-	kafkago "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 func TestNewKafkaWriter_ValidConfig_ShouldSucceed(t *testing.T) {
@@ -70,19 +70,15 @@ func TestWriteMessage_Integration(t *testing.T) {
 	defer cleanup()
 
 	brokerAddress := brokers[0]
-	writer := &msgQueue.Writer{
-		KafkaWriter: &kafkago.Writer{
-			Addr:         kafkago.TCP(brokerAddress),
-			Topic:        testTopic,
-			RequiredAcks: kafkago.RequireOne,
-			Async:        false,
-			BatchTimeout: 100 * time.Millisecond,
-		},
+
+	cfg := msgQueue.WriterConfig{
+		Address: brokerAddress,
+		Topic:   testTopic,
 	}
-	defer func() {
-		err := writer.Close()
-		require.NoError(t, err)
-	}()
+	writer, err := msgQueue.NewKafkaWriter(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+	defer writer.Close()
 
 	t.Run("Successful WriteMessage", func(t *testing.T) {
 		writeCtx, writeCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -99,14 +95,11 @@ func TestWriteMessage_Integration(t *testing.T) {
 		reader, err := msgQueue.NewKafkaReader(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, reader)
-		defer func() {
-			err := reader.Close()
-			require.NoError(t, err)
-		}()
+		defer reader.Close()
 
-		msgChan := make(chan kafkago.Message, 1)
+		msgChan := make(chan kgo.Record, 1)
 		readErrChan := make(chan error, 1)
-		readCtx, readCancel := context.WithTimeout(ctx, readTimeout)
+		readCtx, readCancel := context.WithTimeout(ctx, timeout)
 		defer readCancel()
 
 		go func() {
@@ -146,34 +139,5 @@ func TestWriteMessage_Integration(t *testing.T) {
 
 		err := writer.WriteMessage(cancelCtx, []byte(testMessageKey), []byte(testMessageValue))
 		require.ErrorIs(t, err, context.Canceled)
-	})
-}
-
-func TestWriterClose_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
-	ctx := context.Background()
-	brokers, cleanup := setupKafkaTest(ctx, t)
-	defer cleanup()
-
-	t.Run("Successful Close", func(t *testing.T) {
-		cfg := msgQueue.WriterConfig{
-			Address: brokers[0],
-			Topic:   testTopic,
-		}
-		writer, err := msgQueue.NewKafkaWriter(cfg)
-		require.NoError(t, err)
-		require.NotNil(t, writer)
-
-		err = writer.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("Nil Reader", func(t *testing.T) {
-		var writer *msgQueue.Writer
-		err := writer.Close()
-		require.NoError(t, err)
 	})
 }

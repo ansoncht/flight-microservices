@@ -155,14 +155,8 @@ func safeShutDown(
 		return fmt.Errorf("failed to shutdown HTTP server: %w", err)
 	}
 
-	// Close the HTTP client
 	httpClient.CloseIdleConnections()
+	reader.Close()
 
-	if err := reader.Close(); err != nil {
-		slog.Error("Failed to shutdown reader", "error", err)
-		return fmt.Errorf("failed to shutdown reader: %w", err)
-	}
-
-	// Return nil if all shutdowns were successful
 	return nil
 }

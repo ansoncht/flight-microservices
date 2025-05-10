@@ -131,15 +131,12 @@ func startBackgroundJobs(ctx context.Context, processor *service.Processor) erro
 func safeShutDown(ctx context.Context, processor *service.Processor, mongodb *mongo.Client) error {
 	slog.Info("Shutting down components")
 
-	if err := processor.MessageReader.Close(); err != nil {
-		slog.Error("Failed to shutdown message reader", "error", err)
-		return fmt.Errorf("failed to shutdown message reader: %w", err)
-	}
-
 	if err := mongodb.Client.Disconnect(ctx); err != nil {
 		slog.Error("Failed to shutdown MongoDB client", "error", err)
 		return fmt.Errorf("failed to shutdown mongodb client: %w", err)
 	}
+
+	processor.MessageReader.Close()
 
 	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // WriterConfig holds configuration settings for the Kafka writer.
@@ -21,14 +21,14 @@ type MessageWriter interface {
 	// WriteMessage writes a message to the message queue.
 	WriteMessage(ctx context.Context, key []byte, value []byte) error
 	// Close closes the message queue writer.
-	Close() error
+	Close()
 }
 
 // Writer holds the Kafka writer instance.
 // It implements the MessageWriter interface to provide methods for writing messages to Kafka.
 type Writer struct {
-	// KafkaWriter specifies the kafka writer instance.
-	KafkaWriter *kafka.Writer
+	// Client specifies the kafka reader instance.
+	Client *kgo.Client
 }
 
 // NewKafkaWriter creates a new Writer instance with the provided configuration.
@@ -43,25 +43,23 @@ func NewKafkaWriter(cfg WriterConfig) (*Writer, error) {
 		return nil, fmt.Errorf("kafka topic is empty")
 	}
 
+	opts := []kgo.Opt{
+		kgo.SeedBrokers([]string{cfg.Address}...),
+		kgo.DefaultProduceTopic(cfg.Topic),
+	}
+	client, err := kgo.NewClient(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kafka client: %w", err)
+	}
+
 	return &Writer{
-		KafkaWriter: &kafka.Writer{
-			Addr:  kafka.TCP(cfg.Address),
-			Topic: cfg.Topic,
-		},
+		Client: client,
 	}, nil
 }
 
 // Close closes the Kafka writer.
-func (w *Writer) Close() error {
-	if w == nil {
-		return nil
-	}
-
-	if err := w.KafkaWriter.Close(); err != nil {
-		return fmt.Errorf("failed to close Kafka writer: %w", err)
-	}
-
-	return nil
+func (w *Writer) Close() {
+	w.Client.Close()
 }
 
 // WriteMessage writes a message to the Kafka topic.
@@ -80,14 +78,27 @@ func (w *Writer) WriteMessage(ctx context.Context, key []byte, value []byte) err
 		return fmt.Errorf("message value is nil or empty")
 	}
 
-	msg := kafka.Message{
+	record := &kgo.Record{
 		Key:   key,
 		Value: value,
 	}
 
-	if err := w.KafkaWriter.WriteMessages(ctx, msg); err != nil {
-		return fmt.Errorf("failed to write message to Kafka topic %s: %w", w.KafkaWriter.Topic, err)
-	}
+	errChan := make(chan error, 1)
 
-	return nil
+	w.Client.Produce(ctx, record, func(_ *kgo.Record, err error) {
+		if err != nil {
+			errChan <- err
+		} else {
+			errChan <- nil
+		}
+
+		close(errChan)
+	})
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("context canceled while producing message: %w", ctx.Err())
+	}
 }
