@@ -12,7 +12,6 @@ package mock
 import (
 	reflect "reflect"
 
-	model "github.com/ansoncht/flight-microservices/internal/processor/model"
 	model0 "github.com/ansoncht/flight-microservices/pkg/model"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +41,10 @@ func (m *MockSummarizer) EXPECT() *MockSummarizerMockRecorder {
 }
 
 // SummarizeFlights mocks base method.
-func (m *MockSummarizer) SummarizeFlights(records []model0.FlightRecord, date, airport string) (*model.DailyFlightSummary, error) {
+func (m *MockSummarizer) SummarizeFlights(records []model0.FlightRecord, date, airport string) (*model0.DailyFlightSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SummarizeFlights", records, date, airport)
-	ret0, _ := ret[0].(*model.DailyFlightSummary)
+	ret0, _ := ret[0].(*model0.DailyFlightSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -1,0 +1,21 @@
+http_client:
+  timeout: 10
+threads_api:
+  url: https://graph.threads.net
+  access_token: ''
+twitter_api:
+  access_token_key: ''
+  access_token_secret: ''
+mongo:
+  uri: ''
+  db: flights
+  pool_size: 5
+  connection_timeout: 5
+  socket_timeout: 5
+kafka_reader:
+  address: ''
+  topic: ''
+  group_id: ''
+logger:
+  json: true
+  level: 'info'

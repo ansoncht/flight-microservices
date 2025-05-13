@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ansoncht/flight-microservices/internal/processor/model"
+	"github.com/ansoncht/flight-microservices/pkg/model"
 	db "github.com/ansoncht/flight-microservices/pkg/mongo"
-
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -17,6 +17,8 @@ const dailySummaryCollection = "daily_summaries"
 type SummaryRepository interface {
 	// Insert inserts a new flight summary into the database.
 	Insert(ctx context.Context, summary model.DailyFlightSummary) (string, error)
+	// Get gets a flight summary from the database.
+	Get(ctx context.Context, id string) (*model.DailyFlightSummary, error)
 }
 
 // MongoSummaryRepository holds the MongoDB collection for flight summaries.
@@ -53,4 +55,24 @@ func (r *MongoSummaryRepository) Insert(ctx context.Context, summary model.Daily
 	}
 
 	return oid.Hex(), nil
+}
+
+// Get gets a flight summary from the MongoDB collection.
+func (r *MongoSummaryRepository) Get(ctx context.Context, id string) (*model.DailyFlightSummary, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to cast id to ObjectID")
+	}
+
+	result := r.Collection.FindOne(ctx, bson.D{{Key: "_id", Value: oid}})
+
+	var doc bson.M
+	_ = result.Decode(&doc)
+	fmt.Printf("Document: %+v\n", doc)
+
+	summary := &model.DailyFlightSummary{}
+	if err := result.Decode(summary); err != nil {
+		return nil, fmt.Errorf("failed to find document with ID %s: %w", id, err)
+	}
+	return summary, nil
 }

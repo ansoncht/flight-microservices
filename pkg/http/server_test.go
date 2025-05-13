@@ -107,13 +107,11 @@ func TestServe_ServerError_ShouldError(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	cfg := server.ServerConfig{Port: fmt.Sprintf("%d", 123), Timeout: 5}
+	cfg := server.ServerConfig{Port: fmt.Sprintf("%d", 123), Timeout: 2}
 	server, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 	require.NoError(t, err)
 
 	err = server.Serve(context.Background())
-
-	require.Error(t, err)
 	require.ErrorContains(t, err, "failed to start HTTP server")
 }
 
