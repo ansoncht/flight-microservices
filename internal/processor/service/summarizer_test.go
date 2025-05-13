@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ansoncht/flight-microservices/internal/processor/config"
-	"github.com/ansoncht/flight-microservices/internal/processor/model"
 	"github.com/ansoncht/flight-microservices/internal/processor/service"
 	msg "github.com/ansoncht/flight-microservices/pkg/model"
 	"github.com/stretchr/testify/require"
@@ -35,7 +34,7 @@ func TestSummarizeFlights_ValidAndEmptyData_ShouldSucceed(t *testing.T) {
 	testCases := []struct {
 		name            string
 		flights         []msg.FlightRecord
-		expectedSummary *model.DailyFlightSummary
+		expectedSummary *msg.DailyFlightSummary
 	}{
 		{
 			name: "Valid Data",
@@ -52,8 +51,8 @@ func TestSummarizeFlights_ValidAndEmptyData_ShouldSucceed(t *testing.T) {
 				{Airline: "American", FlightNumber: "302", Origin: "LAX", Destination: "DFW"},
 				{Airline: "United", FlightNumber: "106", Origin: "SAN", Destination: "SFO"},
 			},
-			expectedSummary: &model.DailyFlightSummary{
-				Date:              model.ToMongoDateTime(time.Date(2025, 5, 7, 0, 0, 0, 0, time.UTC)),
+			expectedSummary: &msg.DailyFlightSummary{
+				Date:              msg.ToMongoDateTime(time.Date(2025, 5, 7, 0, 0, 0, 0, time.UTC)),
 				Airport:           "SFO",
 				TotalFlights:      11,
 				AirlineCounts:     map[string]int{"United": 6, "Delta": 2, "American": 2, "JetBlue": 1},
@@ -65,8 +64,8 @@ func TestSummarizeFlights_ValidAndEmptyData_ShouldSucceed(t *testing.T) {
 		{
 			name:    "Empty Flights",
 			flights: []msg.FlightRecord{},
-			expectedSummary: &model.DailyFlightSummary{
-				Date:              model.ToMongoDateTime(time.Date(2025, 5, 7, 0, 0, 0, 0, time.UTC)),
+			expectedSummary: &msg.DailyFlightSummary{
+				Date:              msg.ToMongoDateTime(time.Date(2025, 5, 7, 0, 0, 0, 0, time.UTC)),
 				Airport:           "SFO",
 				TotalFlights:      0,
 				AirlineCounts:     map[string]int{},

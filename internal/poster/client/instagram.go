@@ -1,4 +1,4 @@
-package poster
+package client
 
 import "log/slog"
 

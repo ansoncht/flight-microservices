@@ -90,21 +90,25 @@ func (r *Reader) processFlights(
 	airport string,
 ) error {
 	// Get previous day in Unix timestamp
-	begin, end := getPreviousDayTime()
+	begin, end, date := getPreviousDayTime()
 
 	flights, err := r.flightsClient.FetchFlights(ctx, airport, begin, end)
 	if err != nil {
 		return fmt.Errorf("failed to process flights: %w", err)
 	}
 
-	if err := r.processRoute(ctx, flights); err != nil {
+	if err := r.processRoute(ctx, flights, airport, date); err != nil {
 		return fmt.Errorf("failed to process routes: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reader) processRoute(ctx context.Context, flights []model.Flight) error {
+func (r *Reader) processRoute(ctx context.Context, flights []model.Flight, airport string, date string) error {
+	if err := r.sendStreamControlMessage(ctx, "start_of_stream", airport); err != nil {
+		return fmt.Errorf("failed to send start_of_stream message: %w", err)
+	}
+
 	// Use errgroup with shared context to process routes concurrently
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -149,6 +153,10 @@ func (r *Reader) processRoute(ctx context.Context, flights []model.Flight) error
 		return fmt.Errorf("failed to process at least one route: %w", err)
 	}
 
+	if err := r.sendStreamControlMessage(ctx, "end_of_stream", date); err != nil {
+		return fmt.Errorf("failed to send end_of_stream message: %w", err)
+	}
+
 	return nil
 }
 
@@ -180,19 +188,36 @@ func (r *Reader) sendFlightAndRouteMessage(
 	return nil
 }
 
+func (r *Reader) sendStreamControlMessage(ctx context.Context, key, message string) error {
+	value, err := json.Marshal(map[string]string{"message": message})
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s message: %w", key, err)
+	}
+
+	if err := r.messageWriter.WriteMessage(ctx, []byte(key), value); err != nil {
+		return fmt.Errorf("failed to write %s message to the message queue: %w", key, err)
+	}
+
+	return nil
+}
+
 // getPreviousDayTime calculates the start and end Unix timestamps for the previous day.
-func getPreviousDayTime() (string, string) {
+func getPreviousDayTime() (string, string, string) {
 	now := time.Now()
 
+	yesterday := now.AddDate(0, 0, -2)
+
 	// Mark the start of yesterday (12:00:00 AM)
-	startOfYesterday := time.Date(now.Year(), now.Month(), now.Day()-2, 0, 0, 0, 0, now.Location())
+	startOfYesterday := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
 
 	// Mark the end of yesterday (11:59:59 PM)
-	endOfYesterday := time.Date(now.Year(), now.Month(), now.Day()-2, 23, 59, 59, 0, now.Location())
+	endOfYesterday := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 59, 59, 0, now.Location())
 
 	// Convert to Unix epoch timestamps
 	startEpoch := startOfYesterday.Unix()
 	endEpoch := endOfYesterday.Unix()
 
-	return fmt.Sprintf("%d", startEpoch), fmt.Sprintf("%d", endEpoch)
+	date := yesterday.Format("2006-01-02")
+
+	return fmt.Sprintf("%d", startEpoch), fmt.Sprintf("%d", endEpoch), date
 }

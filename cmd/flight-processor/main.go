@@ -9,12 +9,11 @@ import (
 	"syscall"
 
 	"github.com/ansoncht/flight-microservices/internal/processor/config"
-	"github.com/ansoncht/flight-microservices/internal/processor/repository"
 	"github.com/ansoncht/flight-microservices/internal/processor/service"
-
 	"github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/logger"
 	"github.com/ansoncht/flight-microservices/pkg/mongo"
+	"github.com/ansoncht/flight-microservices/pkg/repository"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -129,8 +128,6 @@ func startBackgroundJobs(ctx context.Context, processor *service.Processor) erro
 
 // safeShutDown shut down MongoDB client and kafka reader gracefully.
 func safeShutDown(ctx context.Context, processor *service.Processor, mongodb *mongo.Client) error {
-	slog.Info("Shutting down components")
-
 	if err := mongodb.Client.Disconnect(ctx); err != nil {
 		slog.Error("Failed to shutdown MongoDB client", "error", err)
 		return fmt.Errorf("failed to shutdown mongodb client: %w", err)

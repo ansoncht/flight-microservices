@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ansoncht/flight-microservices/internal/processor/model"
-	"github.com/ansoncht/flight-microservices/internal/processor/repository"
 	"github.com/ansoncht/flight-microservices/internal/processor/service"
 	"github.com/ansoncht/flight-microservices/internal/test/mock"
-	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
-	msg "github.com/ansoncht/flight-microservices/pkg/model"
+	"github.com/ansoncht/flight-microservices/pkg/kafka"
+	"github.com/ansoncht/flight-microservices/pkg/model"
+	"github.com/ansoncht/flight-microservices/pkg/repository"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/mock/gomock"
@@ -40,8 +39,8 @@ func TestNewProcessor_NilDependencies_ShouldReturnError(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		writer      msgQueue.MessageWriter
-		reader      msgQueue.MessageReader
+		writer      kafka.MessageWriter
+		reader      kafka.MessageReader
 		summarizer  service.Summarizer
 		repository  repository.SummaryRepository
 		expectedErr string
@@ -105,11 +104,11 @@ func TestProcess_ValidMessage_ShouldSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, processor)
 
-	flight1, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight1, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight1)
 
-	flight2, err := json.Marshal(&msg.FlightRecord{Airline: "AA", FlightNumber: "456", Destination: "SFO"})
+	flight2, err := json.Marshal(&model.FlightRecord{Airline: "AA", FlightNumber: "456", Destination: "SFO"})
 	require.NoError(t, err)
 	require.NotNil(t, flight2)
 
@@ -164,7 +163,7 @@ func TestProcess_MalformedMessage_ShouldSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, processor)
 
-	flight1, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight1, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight1)
 
@@ -215,7 +214,7 @@ func TestProcess_ContextCanceledWhenRead_ShouldError(t *testing.T) {
 	sum := mock.NewMockSummarizer(ctrl)
 	repo := mock.NewMockSummaryRepository(ctrl)
 
-	flight, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
@@ -254,7 +253,7 @@ func TestProcess_ContextCanceled_ShouldError(t *testing.T) {
 	sum := mock.NewMockSummarizer(ctrl)
 	repo := mock.NewMockSummaryRepository(ctrl)
 
-	flight, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
@@ -320,7 +319,7 @@ func TestProcess_SummarizeFlightsError_ShouldError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, processor)
 
-	flight, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
@@ -360,7 +359,7 @@ func TestProcessor_Process_RepositoryInsertError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, processor)
 
-	flight, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 
@@ -411,7 +410,7 @@ func TestProcessor_Process_WriteMessageError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, processor)
 
-	flight, err := json.Marshal(&msg.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
+	flight, err := json.Marshal(&model.FlightRecord{Airline: "UA", FlightNumber: "123", Destination: "LAX"})
 	require.NoError(t, err)
 	require.NotNil(t, flight)
 

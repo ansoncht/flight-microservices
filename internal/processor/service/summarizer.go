@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ansoncht/flight-microservices/internal/processor/config"
-	"github.com/ansoncht/flight-microservices/internal/processor/model"
 	msg "github.com/ansoncht/flight-microservices/pkg/model"
 )
 
@@ -16,7 +15,7 @@ const (
 // Summarizer defines the interface for summarizing flight data.
 type Summarizer interface {
 	// SummarizeFlights summarizes flight data for a given date and airport.
-	SummarizeFlights(records []msg.FlightRecord, date string, airport string) (*model.DailyFlightSummary, error)
+	SummarizeFlights(records []msg.FlightRecord, date string, airport string) (*msg.DailyFlightSummary, error)
 }
 
 // FlightSummarizer implements the Summarizer interface.
@@ -40,7 +39,7 @@ func (f *FlightSummarizer) SummarizeFlights(
 	records []msg.FlightRecord,
 	date string,
 	airport string,
-) (*model.DailyFlightSummary, error) {
+) (*msg.DailyFlightSummary, error) {
 	dt, err := parseDate(date)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse date for transaction: %w", err)
@@ -60,8 +59,8 @@ func (f *FlightSummarizer) SummarizeFlights(
 	topDestinations := topNKeysByValue(destCounts, f.topN)
 	topAirlines := topNKeysByValue(airlineCounts, f.topN)
 
-	return &model.DailyFlightSummary{
-		Date:              model.ToMongoDateTime(dt),
+	return &msg.DailyFlightSummary{
+		Date:              msg.ToMongoDateTime(dt),
 		Airport:           airport,
 		TotalFlights:      totalFlights,
 		AirlineCounts:     airlineCounts,

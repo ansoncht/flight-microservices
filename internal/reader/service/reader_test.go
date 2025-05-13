@@ -96,6 +96,8 @@ func TestHTTPHandler_WorkingComponents_ShouldSucceed(t *testing.T) {
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
 	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
 	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
@@ -145,14 +147,17 @@ func TestHTTPHandler_EmptyCallSign_ShouldSucceed(t *testing.T) {
 
 	mRoutes := mock.NewMockRoute(ctrl)
 	mFlights := mock.NewMockFlight(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
 
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "", FirstSeen: 1, LastSeen: 2},
 	}
 
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	reader, err := service.NewReader(mFlights, mRoutes, &kafka.Writer{})
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -175,6 +180,7 @@ func TestHTTPHandler_RoutesClientError_ShouldSucceed(t *testing.T) {
 
 	mRoutes := mock.NewMockRoute(ctrl)
 	mFlights := mock.NewMockFlight(ctrl)
+	mKafka := mock.NewMockMessageWriter(ctrl)
 
 	flights := []model.Flight{
 		{Origin: "VHHH", Destination: "RJTT", Callsign: "CRK452", FirstSeen: 1, LastSeen: 2},
@@ -182,8 +188,10 @@ func TestHTTPHandler_RoutesClientError_ShouldSucceed(t *testing.T) {
 
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
 	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	reader, err := service.NewReader(mFlights, mRoutes, &kafka.Writer{})
+	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -214,7 +222,9 @@ func TestHTTPHandler_MessageWriterError_ShouldSucceed(t *testing.T) {
 
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
 	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("error"))
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
@@ -247,6 +257,7 @@ func TestHTTPHandler_RouteProcessContextCancellation_ShouldError(t *testing.T) {
 
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
 	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(nil, context.Canceled)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	reader, err := service.NewReader(mFlights, mRoutes, mKafka)
 	require.NoError(t, err)
@@ -279,6 +290,7 @@ func TestHTTPHandler_MessageProcessContextCancellation_ShouldError(t *testing.T)
 
 	mFlights.EXPECT().FetchFlights(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(flights, nil)
 	mRoutes.EXPECT().FetchRoute(gomock.Any(), gomock.Any()).Return(&model.Route{}, nil)
+	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mKafka.EXPECT().WriteMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(context.Canceled)
 
 	reader, err := service.NewReader(mFlights, mRoutes, mKafka)

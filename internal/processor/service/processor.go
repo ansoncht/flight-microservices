@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	repo "github.com/ansoncht/flight-microservices/internal/processor/repository"
 	msgQueue "github.com/ansoncht/flight-microservices/pkg/kafka"
 	"github.com/ansoncht/flight-microservices/pkg/model"
+	repo "github.com/ansoncht/flight-microservices/pkg/repository"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"golang.org/x/sync/errgroup"
 )
@@ -85,9 +85,9 @@ processingLoop:
 				airport = string(msg.Value)
 				slog.Info("Started processing stream for airport", "airport", airport)
 			case "end_of_stream":
-				endAirport := string(msg.Value)
+				date := string(msg.Value)
 
-				summary, err := p.summarizer.SummarizeFlights(flights, endAirport, airport)
+				summary, err := p.summarizer.SummarizeFlights(flights, date, airport)
 				if err != nil {
 					return fmt.Errorf("failed to summarize flights: %w", err)
 				}
