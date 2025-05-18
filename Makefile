@@ -1,20 +1,19 @@
-PROTO_DIR = proto
-OUTPUT_DIR = src
+.PHONY: help
+help:
+	@echo "Available make targets:"
+	@grep '^\.PHONY:' Makefile | sed 's/\.PHONY: //g' | tr ' ' '\n' | sort | uniq | \
+	while read target; do \
+		echo "  make $$target"; \
+	done
 
-.PHONY: summarizer
-summarizer:
-	@mkdir -p ${PROTO_DIR}/${OUTPUT_DIR}/summarizer
-	@protoc \
-	-I${PROTO_DIR} \
-	--go_out=${PROTO_DIR}/${OUTPUT_DIR}/summarizer --go_opt=paths=source_relative \
-	--go-grpc_out=${PROTO_DIR}/${OUTPUT_DIR}/summarizer --go-grpc_opt=paths=source_relative \
-	${PROTO_DIR}/summarizer.proto
+.PHONY: reader
+reader:
+	docker build -t flight-reader -f docker/reader.Dockerfile .
+
+.PHONY: processor
+processor:
+	docker build -t flight-processor -f docker/processor.Dockerfile .
 
 .PHONY: poster
 poster:
-	@mkdir -p ${PROTO_DIR}/${OUTPUT_DIR}/poster
-	@protoc \
-	-I${PROTO_DIR} \
-	--go_out=${PROTO_DIR}/${OUTPUT_DIR}/poster --go_opt=paths=source_relative \
-	--go-grpc_out=${PROTO_DIR}/${OUTPUT_DIR}/poster --go-grpc_opt=paths=source_relative \
-	${PROTO_DIR}/poster.proto
+	docker build -t flight-poster -f docker/poster.Dockerfile .

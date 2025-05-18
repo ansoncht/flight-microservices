@@ -111,7 +111,9 @@ func TestServe_ServerError_ShouldError(t *testing.T) {
 	server, err := server.NewServer(cfg, http.HandlerFunc(testHandler))
 	require.NoError(t, err)
 
-	err = server.Serve(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	err = server.Serve(ctx)
 	require.ErrorContains(t, err, "failed to start HTTP server")
 }
 

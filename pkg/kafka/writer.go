@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -43,8 +44,9 @@ func NewKafkaWriter(cfg WriterConfig) (*Writer, error) {
 		return nil, fmt.Errorf("kafka topic is empty")
 	}
 
+	addresses := strings.Split(cfg.Address, ",")
 	opts := []kgo.Opt{
-		kgo.SeedBrokers([]string{cfg.Address}...),
+		kgo.SeedBrokers(addresses...),
 		kgo.DefaultProduceTopic(cfg.Topic),
 	}
 	client, err := kgo.NewClient(opts...)

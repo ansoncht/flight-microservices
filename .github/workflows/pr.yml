@@ -18,12 +18,12 @@ jobs:
         id: filter
         with:
           filters: |
-            flight-reader:
-              - 'cmd/flight-reader/**'
-            flight-processor:
-              - 'cmd/flight-processor/**'
-            flight-poster:
-              - 'cmd/flight-poster/**'
+            reader:
+              - 'cmd/reader/**'
+            processor:
+              - 'cmd/processor/**'
+            poster:
+              - 'cmd/poster/**'
             pkg:
               - 'pkg/**'
             internal:

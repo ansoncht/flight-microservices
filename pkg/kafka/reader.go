@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -59,8 +60,9 @@ func NewKafkaReader(cfg ReaderConfig) (*Reader, error) {
 		return nil, fmt.Errorf("kafka group ID is empty")
 	}
 
+	addresses := strings.Split(cfg.Address, ",")
 	opts := []kgo.Opt{
-		kgo.SeedBrokers([]string{cfg.Address}...),
+		kgo.SeedBrokers(addresses...),
 		kgo.ConsumerGroup(cfg.GroupID),
 		kgo.ConsumeTopics(cfg.Topic),
 	}

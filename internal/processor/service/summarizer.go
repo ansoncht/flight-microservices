@@ -90,7 +90,7 @@ func topNKeysByValue(m map[string]int, n int) []string {
 		for _, value := range buckets[i] {
 			result = append(result, value)
 			if len(result) == n {
-				break
+				return result
 			}
 		}
 	}
