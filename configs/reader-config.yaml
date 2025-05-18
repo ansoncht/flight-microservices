@@ -1,8 +1,8 @@
 http_server:
-  port: 9099
-  timeout: 10
+  port: 8080
+  timeout: 75
 http_client:
-  timeout: 10
+  timeout: 70
 flight_api:
   url: ''
   user: ''

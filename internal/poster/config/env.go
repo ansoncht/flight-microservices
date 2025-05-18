@@ -41,8 +41,9 @@ type TwitterAPIConfig struct {
 func LoadConfig() (*FlightPosterConfig, error) {
 	viper.SetConfigName("poster-config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("../../configs")
 	viper.AddConfigPath("../../../configs")
+	viper.AddConfigPath("../../configs")
+	viper.AddConfigPath("./configs")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_POSTER")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))

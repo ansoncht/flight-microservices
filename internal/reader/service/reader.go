@@ -97,6 +97,8 @@ func (r *Reader) processFlights(
 		return fmt.Errorf("failed to process flights: %w", err)
 	}
 
+	slog.Info("Fetched flights successfully", "airport", airport, "flights_count", len(flights))
+
 	if err := r.processRoute(ctx, flights, airport, date); err != nil {
 		return fmt.Errorf("failed to process routes: %w", err)
 	}
@@ -189,12 +191,7 @@ func (r *Reader) sendFlightAndRouteMessage(
 }
 
 func (r *Reader) sendStreamControlMessage(ctx context.Context, key, message string) error {
-	value, err := json.Marshal(map[string]string{"message": message})
-	if err != nil {
-		return fmt.Errorf("failed to marshal %s message: %w", key, err)
-	}
-
-	if err := r.messageWriter.WriteMessage(ctx, []byte(key), value); err != nil {
+	if err := r.messageWriter.WriteMessage(ctx, []byte(key), []byte(message)); err != nil {
 		return fmt.Errorf("failed to write %s message to the message queue: %w", key, err)
 	}
 

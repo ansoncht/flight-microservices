@@ -85,7 +85,9 @@ processingLoop:
 				airport = string(msg.Value)
 				slog.Info("Started processing stream for airport", "airport", airport)
 			case "end_of_stream":
+
 				date := string(msg.Value)
+				slog.Info("Ended processing stream for airport", "date", date)
 
 				summary, err := p.summarizer.SummarizeFlights(flights, date, airport)
 				if err != nil {

@@ -29,8 +29,9 @@ type SummarizerConfig struct {
 func LoadConfig() (*FlightProcessorConfig, error) {
 	viper.SetConfigName("processor-config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("../../configs")
 	viper.AddConfigPath("../../../configs")
+	viper.AddConfigPath("../../configs")
+	viper.AddConfigPath("./configs")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_PROCESSOR")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))

@@ -1,0 +1,67 @@
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9093"
+      - "9092:9092"  # For internal use
+      - "9101:9101"  # JMX port for monitoring
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "
+      echo 'Waiting for Kafka to be ready...' &&
+      cub kafka-ready -b kafka:9092 1 20 &&
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic reader.flights --partitions 1 --replication-factor 1 &&
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic processor.statistic --partitions 1 --replication-factor 1
+      "
+
+  reader:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./docker/reader.Dockerfile
+    ports:
+      - 8080:8080
+    restart: on-failure:5
+
+  processor:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./docker/processor.Dockerfile
+    restart: on-failure:5
+
+  poster:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./docker/poster.Dockerfile
+    restart: on-failure:5

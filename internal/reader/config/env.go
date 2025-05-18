@@ -40,8 +40,9 @@ type RouteAPIConfig struct {
 func LoadConfig() (*FlightReaderConfig, error) {
 	viper.SetConfigName("reader-config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("../../configs")
 	viper.AddConfigPath("../../../configs")
+	viper.AddConfigPath("../../configs")
+	viper.AddConfigPath("./configs")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("FLIGHT_READER")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
