@@ -45,7 +45,7 @@ services:
       - .env
     build:
       context: .
-      dockerfile: ./docker/reader.Dockerfile
+      dockerfile: ./deployments/docker/reader.Dockerfile
     ports:
       - 8080:8080
     restart: on-failure:5
@@ -55,7 +55,7 @@ services:
       - .env
     build:
       context: .
-      dockerfile: ./docker/processor.Dockerfile
+      dockerfile: ./deployments/docker/processor.Dockerfile
     restart: on-failure:5
 
   poster:
@@ -63,5 +63,5 @@ services:
       - .env
     build:
       context: .
-      dockerfile: ./docker/poster.Dockerfile
+      dockerfile: ./deployments/docker/poster.Dockerfile
     restart: on-failure:5
